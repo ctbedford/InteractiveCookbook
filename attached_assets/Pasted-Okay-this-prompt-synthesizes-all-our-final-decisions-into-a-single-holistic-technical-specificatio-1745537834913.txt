@@ -1,0 +1,176 @@
+Okay, this prompt synthesizes all our final decisions into a single, holistic technical specification for building the internal Campaign Scenario Planner application from scratch. It incorporates the simplified logic, user-defined lift sliders, specific metrics and language based on your image, the final intensity thresholds (with 15-30 as optimal), the locking behavior (Budget fixed), and other detailed UI/UX requirements.
+
+---
+
+**Project Prompt: Internal Campaign Scenario Planner Application**
+
+**1. Project Goal:**
+Develop a single-page React/TypeScript application, styled with Tailwind CSS and Radix UI/Shadcn UI components, to serve as an internal tool for logged-in users. The application will enable rapid estimation and scenario planning for retail marketing campaigns by interactively demonstrating the relationship between key user inputs (Budget, Stores, Weeks, Baseline) and user-defined Sales Lift targets. It will provide direct feedback on spending efficiency via "Ad Spend per Store per Week" and its corresponding intensity level, based on simplified calculations and generic thresholds. The application should strictly function as an internal estimator, excluding all external marketing CTAs, lead capture, and complex benchmark data beyond generic intensity thresholds.
+
+**2. Technology Stack:**
+* Frontend Framework: React
+* Language: TypeScript
+* Build Tool: Vite
+* UI Components: Radix UI / Shadcn UI (Leverage existing components like `InputField`, `Box`, `Flex`, `Text`, `Slider`, `Tooltip`, `Tabs`, Icons)
+* Styling: Tailwind CSS
+
+**3. Core Component & State Management (`ROICalculator.tsx`)**
+
+* **`CalculatorState` Interface:**
+    ```typescript
+    interface CalculatorState {
+      budget: number;
+      stores: number;
+      heroBaseline: number; // Annual Baseline ($)
+      weeks: number;
+      userLiftMin: number; // User input lift % (Lower)
+      userLiftMax: number; // User input lift % (Upper)
+      lastChanged?: keyof Omit<CalculatorState, 'lastChanged'>; // Tracks last edited field for locking logic
+    }
+    ```
+* **React State Hooks:**
+    ```typescript
+    // State for user inputs and change tracking
+    const [state, setState] = useState<CalculatorState>({
+      budget: 50000,
+      stores: 100, // Use 100 from input default, despite image summary text showing 120
+      heroBaseline: 1000000,
+      weeks: 8,
+      userLiftMin: 3.5, // Default from image
+      userLiftMax: 7.0, // Default from image (Note: image shows 17.4% in results, use 7.0 default)
+    });
+
+    // State for locked fields
+    const [lockedFields, setLockedFields] = useState<Set<'budget' | 'stores' | 'adSpendPerStoreWeek'>>(new Set(['budget', 'stores'])); // Default to locking budget & stores
+
+    // State for calculation results
+    const [results, setResults] = useState<CalculationResult | null>(null); // Type defined in calculationUtils.ts
+    ```
+
+**4. UI Layout & Micro-Interactions (`ROICalculator.tsx`)**
+
+* **Header:**
+    * `Heading` component: Text "Estimate Your Retail Campaign ROI Instantly".
+    * `Text` component: Text "Interactive tool for CPG brands & agencies..." (Remove "...retailer, and goals.").
+* **Input Card (`Box` component):** Two-column `Flex` layout.
+    * **Column 1: "Campaign Parameters"**
+        * **Total Campaign Budget ($) `InputField`:**
+            * Props: `label`, `type="number"`, `value={state.budget}`, `onChange`, `min={0}`, `icon="money"`, `canLock={true}`, `locked={lockedFields.has('budget')}`, `onLock`.
+            * Interaction: Typing updates `state.budget`. Lock toggles 'budget' in `lockedFields`.
+        * **Number of Target Test Stores `InputField`:**
+            * Props: `label`, `type="number"`, `value={state.stores}`, `onChange`, `min={1}`, `icon="store"`, `canLock={true}`, `locked={lockedFields.has('stores')}`, `onLock`.
+            * Interaction: Typing updates `state.stores`. Lock toggles 'stores' in `lockedFields`.
+        * **Baseline Annual Sales ($) `InputField`:**
+            * Props: `label`, `type="number"`, `value={state.heroBaseline}`, `onChange`, `min={0}`, `icon="money"`, `canLock={false}`.
+            * Interaction: Typing updates `state.heroBaseline`.
+    * **Column 2: "Campaign Details"**
+        * **Number of Weeks for Campaign `InputField`:**
+            * Props: `label`, `type="number"`, `value={state.weeks}`, `onChange`, `min={1}`, `max={52}`, `icon="calendar"`, `canLock={false}`.
+            * Interaction: Typing updates `state.weeks`.
+        * **Expected Sales Lift % (Lower Bound) `InputField`:**
+            * Props: `label`, `type="number"`, `value={state.userLiftMin}`, `onChange`, `min={0}`, `max={25}`, `step={0.1}`, `useSlider={true}`, `icon="percent"`, `canLock={false}`.
+            * Interaction: Typing/sliding updates `state.userLiftMin`.
+        * **Expected Sales Lift % (Upper Bound) `InputField`:**
+            * Props: `label`, `type="number"`, `value={state.userLiftMax}`, `onChange`, `min={state.userLiftMin}`, `max={25}`, `step={0.1}`, `useSlider={true}`, `icon="percent"`, `canLock={false}`.
+            * Interaction: Typing/sliding updates `state.userLiftMax`. Implement validation `value >= state.userLiftMin`. If invalid, show field error state (e.g., red border, message below).
+* **Derived Weekly Spend & Intensity Feedback (`Box` below inputs):**
+    * `Flex` container (justify="between", align="center").
+    * Left side `Flex` (gap="2", align="center"):
+        * `Text` label: "Ad Spend per Store per Week:".
+        * `Text` value: Display `formatCurrency(results?.adSpendPerStoreWeek ?? 0)`. (Use image example $62.51 - implies rounding preference or use calculated $62.50).
+        * Intensity Feedback `Flex` (marginLeft="2", gap="1", align="center"):
+            * Icon `Box`: Renders Remix Icon `ri-checkbox-circle-fill` (Optimal) or `ri-error-warning-fill` (Others) based on `results.intensityFeedback.level`. Color using theme tokens (`var(--green-9)` / `var(--orange-9)` - ensure contrast).
+            * `Text` label: `(${results.intensityFeedback.level})`. Color matches icon.
+            * `Tooltip` wrapper (around Icon/Text): `content={results.intensityFeedback.message}`.
+    * Right side Lock `Flex` (cursor="pointer", gap="1", align="center"):
+        * Icon `Box`: `ri-lock-fill` or `ri-lock-unlock-line` based on `lockedFields.has('adSpendPerStoreWeek')`.
+        * `Text`: "Lock" / "Unlock".
+        * Interaction: `onClick` calls `handleLock('adSpendPerStoreWeek')`. Button should be disabled if `lockedFields` contains both 'budget' and 'stores'.
+
+**5. State Update & Calculation Flow (`ROICalculator.tsx`)**
+
+* `handleChange(field, value)`:
+    * Performs basic validation (e.g., non-negative, numeric). If invalid, potentially sets an error state for the field and returns early.
+    * Updates `state` using `setState({...prevState, [field]: validatedValue, lastChanged: field})`.
+* `handleLock(target)`:
+    * Checks for over-constraint based on `lockedFields` state. If adding `target` would over-constrain (e.g., trying to lock a third item when Budget & Stores are already locked), do nothing or show a brief notification/toast.
+    * Otherwise, creates a new Set from `lockedFields`, adds/removes `target`, and updates state via `setLockedFields(newSet)`.
+* `useEffect([state])`:
+    * Primary calculation trigger. Runs whenever `state` changes.
+    * Calls `calculateResults(state)`.
+    * Updates `results` state via `setResults(...)`.
+* `useEffect([state.budget, state.stores, state.weeks, lockedFields, state.lastChanged])`:
+    * Handles locking interdependencies.
+    * If `lockedFields.has('adSpendPerStoreWeek')`:
+        * If `state.lastChanged === 'weeks'` AND `lockedFields.has('budget')`:
+            * Retrieve the locked weekly spend value (needs to be stored temporarily when lock is activated or derived carefully).
+            * Calculate `newStores = state.budget / (lockedWeeklyValue * state.weeks)`.
+            * Round `newStores` to nearest integer.
+            * If `newStores >= 1` and different from `state.stores`, call `setState({...state, stores: newStores})`.
+        * Handle other potential lock combinations if logic allows (e.g., locking Weekly Spend + Stores adjusts Budget).
+    * Implement safety checks for division by zero.
+
+**6. Calculation Logic (`calculationUtils.ts`)**
+
+* **Generic Intensity Thresholds Constant:**
+    ```typescript
+    const GENERIC_INTENSITY_THRESHOLDS = { VERY_LOW: 5, LOW: 15, MEDIUM: 30, HIGH: 50 }; // Adjusted: <5 VL, 5-<15 L, 15-<30 M(Opt), 30-<50 H, >=50 VH
+    ```
+* **`CalculationResult` Interface:**
+    ```typescript
+    interface CalculationResult {
+      expectedCampaignSales: number;
+      expectedCampaignSalesPerStorePerWeek: number;
+      totalAdSpendPerStore: number;
+      adSpendPerStoreWeek: number;
+      intensityFeedback: { level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; message: string };
+      expectedIncrementalSalesValueMin: number; // $ value
+      expectedIncrementalSalesValueMax: number; // $ value
+      userLiftMin: number; // % value from input state
+      userLiftMax: number; // % value from input state
+      calculatedROASRatio?: number; // Optional Ratio
+      calculatedROIPercentage?: number; // Optional %
+    }
+    ```
+* **`calculateResults(state: CalculatorState): CalculationResult` Function:**
+    * Handles potential zero inputs safely (`stores = state.stores || 1; weeks = state.weeks || 1; budget = state.budget || 0;`).
+    * Calculates `combinedWeeklyBaseline = state.heroBaseline / 52;`
+    * Calculates `expectedCampaignSales = combinedWeeklyBaseline * weeks;`
+    * Calculates `expectedCampaignSalesPerStorePerWeek = expectedCampaignSales / stores / weeks;`
+    * Calculates `totalAdSpendPerStore = budget / stores;`
+    * Calculates `adSpendPerStoreWeek = totalAdSpendPerStore / weeks;`
+    * Calls `intensityFeedback = getIntensityFeedbackLogic(adSpendPerStoreWeek);`
+    * Calculates `liftMinDecimal = state.userLiftMin / 100;`
+    * Calculates `liftMaxDecimal = state.userLiftMax / 100;`
+    * Calculates `expectedIncrementalSalesValueMin = liftMinDecimal * expectedCampaignSales;`
+    * Calculates `expectedIncrementalSalesValueMax = liftMaxDecimal * expectedCampaignSales;`
+    * Calculates `calculatedROASRatio = budget > 0 ? expectedIncrementalSalesValueMax / budget : Infinity;`
+    * Calculates `calculatedROIPercentage = budget > 0 ? ((expectedIncrementalSalesValueMax - budget) / budget) * 100 : Infinity;`
+    * Returns object matching `CalculationResult`, including `userLiftMin: state.userLiftMin`, `userLiftMax: state.userLiftMax`.
+* **`getIntensityFeedbackLogic(weeklySpend)` Helper:**
+    * Uses `GENERIC_INTENSITY_THRESHOLDS` (<5, 5-<15, 15-<30, 30-<50, >=50).
+    * Returns specific `{ level: '...', message: '...' }` object for each tier (using messages defined in previous response based on these final thresholds).
+
+**7. Results Display (`ResultsCardNew.tsx`)**
+
+* **Props:** Matches `CalculationResult` interface.
+* **Rendering:**
+    * Uses `Tabs` for "Totals" / "Weekly Averages" toggle (if `totalAdSpendPerStore` vs `adSpendPerStoreWeek` display toggle is kept).
+    * Displays metrics in `Box` elements with `Text` for labels, values (using `formatCurrency`, `formatPercentage`), and sub-labels, exactly matching the layout and labels in `image_832516.jpg`:
+        * "Expected Campaign Sales" (`props.expectedCampaignSales`). Handle $0 placeholder if necessary.
+        * "Expected Incremental Sales Range" (`props.expectedIncrementalSalesValueMin` to `Max`). Sub-label uses `props.userLiftMin`/`Max`.
+        * "Expected Campaign Sales Per Store Per Week" (`props.expectedCampaignSalesPerStorePerWeek`). Handle $0 placeholder.
+        * "Total Ad Spend Per Store" (`props.totalAdSpendPerStore`).
+    * **Dynamic Summary Text:** Render exactly as shown in the image, interpolating calculated values and the `props.intensityFeedback.message`.
+    * **Additional Performance Metrics Section:**
+        * Displays "Estimated ROI:" (`props.calculatedROIPercentage`, formatted as %, show "N/A" if Infinity).
+        * Displays "Estimated ROAS:" (`props.calculatedROASRatio`, formatted as X.XX:1, show "N/A" if Infinity).
+        * Displays sub-label "Based on your maximum lift input of +{Y.Y}%".
+    * **Notes Section:** Displays the two disclaimer `Text` lines exactly as in the image.
+
+**8. Styling & Legibility (`custom-pathformance-styles.css`, Tailwind)**
+
+* Ensure high contrast for all text, especially the intensity feedback messages (e.g., using appropriate `var(--orange-9)` or similar with sufficient contrast ratio against the background) and the notes text. Review color variable definitions if needed.
+* Use padding/margins to match the visual layout in `image_832516.jpg`.
+
+This detailed prompt should provide a clear blueprint for development, covering all micro-elements, interactions, state flow, calculations, and final presentation based on your requirements.
