@@ -1,0 +1,49 @@
+Okay, let's outline all the possible locking scenarios based on our final specification for the internal calculator and detail exactly which input field(s) should automatically change in response to user edits.
+
+**Core Variables Involved:**
+
+* **B:** Total Campaign Budget ($) - User Input, Lockable
+* **S:** Number of Target Test Stores - User Input, Lockable
+* **W:** Number of Weeks for Campaign - User Input, Not Lockable
+* **ASW:** Ad Spend per Store per Week ($) - Derived (`B / S / W`), Lockable
+
+**Key Rule (Based on your confirmation):** When ASW is locked and W changes, **Budget (B) is treated as fixed**, so **Stores (S) must adjust**.
+
+Here are the scenarios:
+
+**Scenario 1: Only Budget (B) is Locked**
+
+* User changes Stores (S) -> ASW recalculates (`B / S / W`). W is unchanged.
+* User changes Weeks (W) -> ASW recalculates (`B / S / W`). S is unchanged.
+
+**Scenario 2: Only Stores (S) is Locked**
+
+* User changes Budget (B) -> ASW recalculates (`B / S / W`). W is unchanged.
+* User changes Weeks (W) -> ASW recalculates (`B / S / W`). B is unchanged.
+
+**Scenario 3: Only Ad Spend per Store per Week (ASW) is Locked** (Target Value = `LockedASW`)
+
+* User changes Budget (B) -> **Stores (S) automatically recalculates** as `S = B / (LockedASW * W)`. W is unchanged. (Resulting S rounded to nearest integer, ensure S >= 1).
+* User changes Stores (S) -> **Budget (B) automatically recalculates** as `B = LockedASW * S * W`. W is unchanged. (Resulting B rounded to 2 decimal places, ensure B >= 0).
+* User changes Weeks (W) -> **Stores (S) automatically recalculates** as `S = B / (LockedASW * W)`. Budget (B) remains unchanged (as per your fixed budget priority). (Resulting S rounded to nearest integer, ensure S >= 1).
+
+**Scenario 4: Budget (B) AND Stores (S) are Locked**
+
+* User changes Weeks (W) -> ASW recalculates (`B / S / W`). B and S remain fixed.
+* *UI Rule:* The lock button for ASW should be disabled in this state.
+
+**Scenario 5: Budget (B) AND Ad Spend per Store per Week (ASW) are Locked** (Target Value = `LockedASW`)
+
+* User changes Weeks (W) -> **Stores (S) automatically recalculates** as `S = B / (LockedASW * W)`. Budget (B) remains fixed. (Resulting S rounded to nearest integer, ensure S >= 1).
+* *UI Rule:* The lock button for Stores (S) should be disabled in this state.
+
+**Scenario 6: Stores (S) AND Ad Spend per Store per Week (ASW) are Locked** (Target Value = `LockedASW`)
+
+* User changes Weeks (W) -> **Budget (B) automatically recalculates** as `B = LockedASW * S * W`. Stores (S) remains fixed. (Resulting B rounded to 2 decimal places, ensure B >= 0).
+* *UI Rule:* The lock button for Budget (B) should be disabled in this state.
+
+**Scenario 7: All Three (B, S, ASW) Locked**
+
+* *UI Rule:* This state should be prevented. The UI should disable the lock button for the third item once any two items involving B, S, and ASW are locked.
+
+This covers how the system should behave interactively based on which parameters the user chooses to lock, always ensuring the correct variable adjusts automatically according to the defined logic and priorities.
