@@ -5,6 +5,9 @@ import { calculateResults } from "@/lib/calculationUtils";
 import { formatCurrency } from "@/lib/formatUtils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+type LockableField = 'budget' | 'stores' | 'adSpendPerStoreWeek';
+type LastChangedField = 'budget' | 'stores' | 'heroBaseline' | 'weeks' | 'userLiftMin' | 'userLiftMax';
+
 interface CalculatorState {
   budget: number;
   stores: number;
@@ -12,7 +15,7 @@ interface CalculatorState {
   weeks: number;
   userLiftMin: number; // User input lift % (Lower)
   userLiftMax: number; // User input lift % (Upper)
-  lastChanged?: 'budget' | 'stores' | 'heroBaseline' | 'weeks' | 'userLiftMin' | 'userLiftMax'; // Tracks last edited field for locking logic
+  lastChanged?: LastChangedField; // Tracks last edited field for locking logic
 }
 
 export default function ROICalculator() {
@@ -27,8 +30,8 @@ export default function ROICalculator() {
   });
 
   // State for locked fields
-  const [lockedFields, setLockedFields] = useState<Set<'budget' | 'stores' | 'adSpendPerStoreWeek'>>(
-    new Set(['budget', 'stores'] as Array<'budget' | 'stores'>)
+  const [lockedFields, setLockedFields] = useState(
+    new Set<LockableField>(['budget'])
   );
 
   // State for calculation results
@@ -54,30 +57,36 @@ export default function ROICalculator() {
         
         if (newStores !== state.stores) {
           // Update stores without triggering the lastChanged tracking
-          setState(prev => ({
-            ...prev,
-            stores: newStores,
-          }));
+          setState(prev => {
+            return {
+              ...prev,
+              stores: newStores
+            };
+          });
         }
       } else if (state.lastChanged === 'stores') {
         // User changes Stores (S) -> Budget (B) automatically recalculates
         const newBudget = Math.max(0, Number((lockedASW * state.stores * state.weeks).toFixed(2)));
         
         if (newBudget !== state.budget) {
-          setState(prev => ({
-            ...prev,
-            budget: newBudget,
-          }));
+          setState(prev => {
+            return {
+              ...prev,
+              budget: newBudget
+            };
+          });
         }
       } else if (state.lastChanged === 'weeks') {
         // User changes Weeks (W) -> Stores (S) automatically recalculates
         const newStores = Math.max(1, Math.round(state.budget / (lockedASW * state.weeks)));
         
         if (newStores !== state.stores) {
-          setState(prev => ({
-            ...prev,
-            stores: newStores,
-          }));
+          setState(prev => {
+            return {
+              ...prev,
+              stores: newStores
+            };
+          });
         }
       }
     }
@@ -89,10 +98,12 @@ export default function ROICalculator() {
         const newStores = Math.max(1, Math.round(state.budget / (lockedASW * state.weeks)));
         
         if (newStores !== state.stores) {
-          setState(prev => ({
-            ...prev,
-            stores: newStores,
-          }));
+          setState(prev => {
+            return {
+              ...prev,
+              stores: newStores
+            };
+          });
         }
       }
     }
@@ -104,10 +115,12 @@ export default function ROICalculator() {
         const newBudget = Math.max(0, Number((lockedASW * state.stores * state.weeks).toFixed(2)));
         
         if (newBudget !== state.budget) {
-          setState(prev => ({
-            ...prev,
-            budget: newBudget,
-          }));
+          setState(prev => {
+            return {
+              ...prev,
+              budget: newBudget
+            };
+          });
         }
       }
     }
@@ -136,22 +149,21 @@ export default function ROICalculator() {
 
     // Update state with validated value and track the last changed field
     setState(prev => {
-      return {
-        ...prev,
-        [field]: validatedValue,
-        lastChanged: field as 'budget' | 'stores' | 'heroBaseline' | 'weeks' | 'userLiftMin' | 'userLiftMax'
-      };
+      if (field === 'budget' || field === 'stores' || field === 'heroBaseline' || 
+          field === 'weeks' || field === 'userLiftMin' || field === 'userLiftMax') {
+        return {
+          ...prev,
+          [field]: validatedValue,
+          lastChanged: field
+        };
+      }
+      return prev;
     });
   };
 
-  const handleLock = (field: 'budget' | 'stores' | 'adSpendPerStoreWeek') => {
-    // Create a new Set with the correct type
-    const fieldArray: Array<'budget' | 'stores' | 'adSpendPerStoreWeek'> = [];
-    lockedFields.forEach(item => {
-      fieldArray.push(item as 'budget' | 'stores' | 'adSpendPerStoreWeek');
-    });
-    
-    const newLockedFields = new Set<'budget' | 'stores' | 'adSpendPerStoreWeek'>(fieldArray);
+  const handleLock = (field: LockableField) => {
+    // Create a new Set for locked fields
+    const newLockedFields = new Set(lockedFields);
     
     if (newLockedFields.has(field)) {
       // Unlock the field
