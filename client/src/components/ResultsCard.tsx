@@ -18,6 +18,7 @@ interface ResultsCardProps {
   userLiftMax: number;
   calculatedROASRatio?: number;
   calculatedROIPercentage?: number;
+  stores: number; // Added stores for correct summary display
 }
 
 export default function ResultsCard(props: ResultsCardProps) {
@@ -85,8 +86,8 @@ export default function ResultsCard(props: ResultsCardProps) {
           {/* Dynamic Summary Text */}
           <div className="pt-2 border-t border-primary-200">
             <p className="text-sm text-primary-700 leading-relaxed">
-              With a <span className="font-medium">{formatCurrency(props.totalAdSpendPerStore * props.expectedCampaignSales / props.expectedCampaignSalesPerStorePerWeek / props.adSpendPerStoreWeek)}</span> budget 
-              across <span className="font-medium">{Math.round(props.expectedCampaignSales / props.expectedCampaignSalesPerStorePerWeek / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek))}</span> stores
+              With a <span className="font-medium">{formatCurrency(props.totalAdSpendPerStore * props.stores)}</span> budget 
+              across <span className="font-medium">{props.stores}</span> stores
               for <span className="font-medium">{Math.round(props.totalAdSpendPerStore / props.adSpendPerStoreWeek)}</span> weeks, 
               your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
               is in the <span className={`font-medium ${intensityClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range. 
