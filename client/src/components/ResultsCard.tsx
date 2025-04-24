@@ -120,11 +120,8 @@ export default function ResultsCard(props: ResultsCardProps) {
           
           {/* Notes Section */}
           <div className="pt-2 border-t border-primary-200">
-            <p className="text-xs text-primary-500 mb-1">
-              Actual results may vary based on execution, market conditions, and other factors.
-            </p>
             <p className="text-xs text-primary-500">
-              ROI calculated as (Incremental Sales - Campaign Budget) / Campaign Budget.
+              Actual results may vary based on execution, market conditions, and other factors. ROI calculated as (Incremental Sales - Campaign Budget) / Campaign Budget.
             </p>
           </div>
         </TabsContent>
@@ -188,11 +185,8 @@ export default function ResultsCard(props: ResultsCardProps) {
           
           {/* Notes Section */}
           <div className="pt-2 border-t border-primary-200">
-            <p className="text-xs text-primary-500 mb-1">
-              Actual results may vary based on execution, market conditions, and other factors.
-            </p>
             <p className="text-xs text-primary-500">
-              ROI calculated as (Incremental Sales - Campaign Budget) / Campaign Budget.
+              Actual results may vary based on execution, market conditions, and other factors. ROI calculated as (Incremental Sales - Campaign Budget) / Campaign Budget.
             </p>
           </div>
         </TabsContent>
