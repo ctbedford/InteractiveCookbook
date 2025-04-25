@@ -1,0 +1,304 @@
+Retail Marketing Campaign ROI Calculator - Code Export
+Generated on: Fri 25 Apr 2025 12:00:24 AM UTC
+=========================================================
+
+=== CLIENT FILES ===
+
+## FILE: client/src/App.tsx
+
+
+
+## FILE: client/src/main.tsx
+
+
+
+## FILE: client/src/index.css
+
+
+
+## FILE: client/index.html
+
+
+
+## FILE: client/src/pages/Home.tsx
+
+
+
+## FILE: client/src/pages/not-found.tsx
+
+
+
+## FILE: client/src/components/InputField.tsx
+
+
+
+## FILE: client/src/components/ResultsCard.tsx
+
+
+
+## FILE: client/src/components/ROICalculator.tsx
+
+
+
+## FILE: client/src/components/ui/accordion.tsx
+
+
+
+## FILE: client/src/components/ui/alert-dialog.tsx
+
+
+
+## FILE: client/src/components/ui/alert.tsx
+
+
+
+## FILE: client/src/components/ui/aspect-ratio.tsx
+
+
+
+## FILE: client/src/components/ui/avatar.tsx
+
+
+
+## FILE: client/src/components/ui/badge.tsx
+
+
+
+## FILE: client/src/components/ui/breadcrumb.tsx
+
+
+
+## FILE: client/src/components/ui/button.tsx
+
+
+
+## FILE: client/src/components/ui/calendar.tsx
+
+
+
+## FILE: client/src/components/ui/card.tsx
+
+
+
+## FILE: client/src/components/ui/carousel.tsx
+
+
+
+## FILE: client/src/components/ui/chart.tsx
+
+
+
+## FILE: client/src/components/ui/checkbox.tsx
+
+
+
+## FILE: client/src/components/ui/collapsible.tsx
+
+
+
+## FILE: client/src/components/ui/command.tsx
+
+
+
+## FILE: client/src/components/ui/context-menu.tsx
+
+
+
+## FILE: client/src/components/ui/dialog.tsx
+
+
+
+## FILE: client/src/components/ui/drawer.tsx
+
+
+
+## FILE: client/src/components/ui/dropdown-menu.tsx
+
+
+
+## FILE: client/src/components/ui/form.tsx
+
+
+
+## FILE: client/src/components/ui/hover-card.tsx
+
+
+
+## FILE: client/src/components/ui/input-otp.tsx
+
+
+
+## FILE: client/src/components/ui/input.tsx
+
+
+
+## FILE: client/src/components/ui/label.tsx
+
+
+
+## FILE: client/src/components/ui/menubar.tsx
+
+
+
+## FILE: client/src/components/ui/navigation-menu.tsx
+
+
+
+## FILE: client/src/components/ui/pagination.tsx
+
+
+
+## FILE: client/src/components/ui/popover.tsx
+
+
+
+## FILE: client/src/components/ui/progress.tsx
+
+
+
+## FILE: client/src/components/ui/radio-group.tsx
+
+
+
+## FILE: client/src/components/ui/resizable.tsx
+
+
+
+## FILE: client/src/components/ui/scroll-area.tsx
+
+
+
+## FILE: client/src/components/ui/select.tsx
+
+
+
+## FILE: client/src/components/ui/separator.tsx
+
+
+
+## FILE: client/src/components/ui/sheet.tsx
+
+
+
+## FILE: client/src/components/ui/sidebar.tsx
+
+
+
+## FILE: client/src/components/ui/skeleton.tsx
+
+
+
+## FILE: client/src/components/ui/slider.tsx
+
+
+
+## FILE: client/src/components/ui/switch.tsx
+
+
+
+## FILE: client/src/components/ui/table.tsx
+
+
+
+## FILE: client/src/components/ui/tabs.tsx
+
+
+
+## FILE: client/src/components/ui/textarea.tsx
+
+
+
+## FILE: client/src/components/ui/toaster.tsx
+
+
+
+## FILE: client/src/components/ui/toast.tsx
+
+
+
+## FILE: client/src/components/ui/toggle-group.tsx
+
+
+
+## FILE: client/src/components/ui/toggle.tsx
+
+
+
+## FILE: client/src/components/ui/tooltip.tsx
+
+
+
+## FILE: client/src/hooks/use-mobile.tsx
+
+
+
+## FILE: client/src/hooks/use-toast.ts
+
+
+
+## FILE: client/src/lib/calculationUtils.ts
+
+
+
+## FILE: client/src/lib/formatUtils.ts
+
+
+
+## FILE: client/src/lib/queryClient.ts
+
+
+
+## FILE: client/src/lib/utils.ts
+
+
+
+=== SERVER FILES ===
+
+## FILE: server/index.ts
+
+
+
+## FILE: server/routes.ts
+
+
+
+## FILE: server/storage.ts
+
+
+
+## FILE: server/vite.ts
+
+
+
+=== SHARED FILES ===
+
+## FILE: shared/schema.ts
+
+
+
+=== CONFIG FILES ===
+
+## FILE: vite.config.ts
+
+
+
+## FILE: tailwind.config.ts
+
+
+
+## FILE: tsconfig.json
+
+
+
+## FILE: postcss.config.js
+
+
+
+## FILE: drizzle.config.ts
+
+
+
+## FILE: components.json
+
+
+
