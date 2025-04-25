@@ -53,8 +53,11 @@ function getIntensityFeedbackLogic(ASW: number, BSW: number, userLiftMin: number
     spendLevelCategory = 'High';
   }
   
-  // Determine target realism
-  const targetRealism: 'Realistic' | 'Ambitious' = userLiftMax <= REASONABLE_MAX_LIFT ? 'Realistic' : 'Ambitious';
+  // Determine target realism - consider both user lift and break-even requirement
+  const targetRealism: 'Realistic' | 'Ambitious' = 
+    (userLiftMax <= REASONABLE_MAX_LIFT && breakEvenLiftPercent <= REASONABLE_MAX_LIFT) 
+    ? 'Realistic' 
+    : 'Ambitious';
   
   // Determine detailed intensity level
   let detailedIntensityLevel: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High';
@@ -120,9 +123,9 @@ function getIntensityFeedbackLogic(ASW: number, BSW: number, userLiftMin: number
   } else if (detailedIntensityLevel === 'Optimal') {
     message = `Spending ($${GENERIC_INTENSITY_THRESHOLDS.LOW}-$${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}/store/wk) is optimal. Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Your target range (${liftRangeDisplay}) appears achievable ${userLiftMax > REASONABLE_MAX_LIFT ? 'though the upper target is ambitious (>15%)' : ''} and potentially profitable.`;
   } else if (detailedIntensityLevel === 'High') {
-    message = `Spending is high ($${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}-$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which may be challenging to achieve' : ''}. Ensure tactics support this spend level and monitor for diminishing returns. Your upper target ${userLiftMax > REASONABLE_MAX_LIFT ? `(${userLiftMax.toFixed(1)}%) exceeds typical ranges (~15%)` : 'is within reasonable ranges'}.`;
+    message = `Spending is high ($${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}-$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which may be challenging to achieve (>15%)' : ''}. Ensure tactics support this spend level and monitor for diminishing returns. Your target range (${liftRangeDisplay}), while achievable, is below the break-even lift requirement (${breakEvenLiftPercent.toFixed(1)}%) and is unlikely to cover ad spend.`;
   } else {
-    message = `Spending is very high (>$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which is likely unachievable (>15%)' : ''}. Diminishing returns are very likely. Strongly consider optimizing budget/stores/weeks. ${userLiftMax > REASONABLE_MAX_LIFT ? `Your upper target (${userLiftMax.toFixed(1)}%) also exceeds typical ranges.` : ''}`;
+    message = `Spending is very high (>$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift, which is likely unachievable (>15%). Diminishing returns are very likely. Strongly consider optimizing budget/stores/weeks. Your target range (${liftRangeDisplay}), while achievable, is below the break-even lift requirement (${breakEvenLiftPercent.toFixed(1)}%) and is unlikely to cover ad spend.`;
   }
   
   return {
