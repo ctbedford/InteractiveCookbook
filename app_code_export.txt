@@ -1,5 +1,5 @@
 Retail Marketing Campaign ROI Calculator - Code Export
-Generated on: Fri 25 Apr 2025 05:27:22 PM UTC
+Generated on: Fri 25 Apr 2025 05:46:46 PM UTC
 =========================================================
 
 ## FILE: client/index.html
@@ -172,7 +172,7 @@ export default function InputField({
 ```
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatCurrency, formatPercentage } from "@/lib/formatUtils";
+import { formatCurrency, formatPercentage, formatROI, formatROAS } from "@/lib/formatUtils";
 import { Card } from "@/components/ui/card";
 
 interface ResultsCardProps {
@@ -180,9 +180,12 @@ interface ResultsCardProps {
   expectedCampaignSalesPerStorePerWeek: number;
   totalAdSpendPerStore: number;
   adSpendPerStoreWeek: number;
-  intensityFeedback: { 
-    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; 
-    message: string 
+  intensityFeedback: {
+    label: string; // e.g., "(Optimal Spend / Realistic Target)"
+    icon: '✅' | '⚠️'; // Use actual icon characters or identifiers
+    color: 'green' | 'orange' | 'red'; // Conceptual color categories
+    message: string; // Detailed tooltip message
+    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; // Underlying intensity level
   };
   expectedIncrementalSalesValueMin: number;
   expectedIncrementalSalesValueMax: number;
@@ -190,25 +193,25 @@ interface ResultsCardProps {
   userLiftMax: number;
   calculatedROASRatio?: number;
   calculatedROIPercentage?: number;
-  stores: number; // Added stores for correct summary display
+  stores: number;
+  weeks: number;
+  budget: number;
 }
 
 export default function ResultsCard(props: ResultsCardProps) {
   const [activeTab, setActiveTab] = useState('totals');
   
-  const formatROAS = (value?: number) => {
-    if (value === undefined || !isFinite(value)) return "N/A";
-    return `$${value.toFixed(2)} to $1.00 Spent`;
+  // Get the appropriate CSS class for the intensity feedback color
+  const getColorClass = (color: 'green' | 'orange' | 'red') => {
+    switch (color) {
+      case 'green': return 'text-green-600';
+      case 'orange': return 'text-yellow-600';
+      case 'red': return 'text-red-600';
+      default: return 'text-primary-600';
+    }
   };
   
-  const formatROI = (value?: number) => {
-    if (value === undefined || !isFinite(value)) return "N/A";
-    return `${value.toFixed(1)}%`;
-  };
-
-  const intensityClass = props.intensityFeedback.level === 'Optimal' 
-    ? 'text-success-600' 
-    : 'text-warning-600';
+  const intensityColorClass = getColorClass(props.intensityFeedback.color);
 
   return (
     <Card className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -258,11 +261,11 @@ export default function ResultsCard(props: ResultsCardProps) {
           {/* Dynamic Summary Text */}
           <div className="pt-2 border-t border-primary-200">
             <p className="text-sm text-primary-700 leading-relaxed">
-              With a <span className="font-medium">{formatCurrency(props.totalAdSpendPerStore * props.stores)}</span> budget 
+              With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget 
               across <span className="font-medium">{props.stores}</span> stores
-              for <span className="font-medium">{Math.round(props.totalAdSpendPerStore / props.adSpendPerStoreWeek)}</span> weeks, 
+              for <span className="font-medium">{props.weeks}</span> weeks, 
               your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
-              is in the <span className={`font-medium ${intensityClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range. 
+              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon} 
               {props.intensityFeedback.message}
             </p>
           </div>
@@ -299,12 +302,12 @@ export default function ResultsCard(props: ResultsCardProps) {
         </TabsContent>
         
         <TabsContent value="weekly" className="p-5 space-y-4">
-          {/* Weekly content would be similar but with weekly averages */}
+          {/* Weekly content */}
           {/* Expected Weekly Campaign Sales */}
           <div>
             <span className="block text-sm text-primary-500">Expected Weekly Campaign Sales</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedCampaignSales / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)}
+              {formatCurrency(props.expectedCampaignSales / props.weeks, false)}
             </span>
           </div>
           
@@ -312,8 +315,8 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Weekly Incremental Sales Range</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedIncrementalSalesValueMin / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)} - 
-              {formatCurrency(props.expectedIncrementalSalesValueMax / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)}
+              {formatCurrency(props.expectedIncrementalSalesValueMin / props.weeks, false)} - 
+              {formatCurrency(props.expectedIncrementalSalesValueMax / props.weeks, false)}
             </span>
             <span className="block text-xs text-primary-500">
               Based on +{props.userLiftMin.toFixed(1)}% to +{props.userLiftMax.toFixed(1)}% lift
@@ -324,7 +327,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Sales Per Store Per Week</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedCampaignSalesPerStorePerWeek)}
+              {formatCurrency(props.expectedCampaignSalesPerStorePerWeek, true)}
             </span>
           </div>
           
@@ -332,8 +335,20 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Weekly Ad Spend Per Store</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.adSpendPerStoreWeek)}
+              {formatCurrency(props.adSpendPerStoreWeek, true)}
             </span>
+          </div>
+          
+          {/* Dynamic Summary Text */}
+          <div className="pt-2 border-t border-primary-200">
+            <p className="text-sm text-primary-700 leading-relaxed">
+              With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget 
+              across <span className="font-medium">{props.stores}</span> stores
+              for <span className="font-medium">{props.weeks}</span> weeks, 
+              your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
+              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon} 
+              {props.intensityFeedback.message}
+            </p>
           </div>
           
           {/* Performance Metrics */}
@@ -353,6 +368,10 @@ export default function ResultsCard(props: ResultsCardProps) {
                 {formatROAS(props.calculatedROASRatio)}
               </span>
             </div>
+            
+            <p className="text-xs text-primary-500">
+              Based on your maximum lift input of +{props.userLiftMax.toFixed(1)}%
+            </p>
           </div>
           
           {/* Notes Section */}
@@ -405,7 +424,7 @@ export default function ROICalculator() {
 
   // State for locked fields
   const [lockedFields, setLockedFields] = useState(
-    new Set<LockableField>([])
+    new Set<LockableField>(['budget', 'stores'])
   );
 
   // Store the locked ASW value separately
@@ -429,14 +448,14 @@ export default function ROICalculator() {
       ? (lockedASWValue ?? results.adSpendPerStoreWeek)
       : results.adSpendPerStoreWeek;
     
-    // Scenario 3: Only Ad Spend per Store per Week (ASW) is Locked
-    if (lockedFields.has('adSpendPerStoreWeek') && !lockedFields.has('budget') && !lockedFields.has('stores')) {
-      if (state.lastChanged === 'budget') {
-        // User changes Budget (B) -> Stores (S) automatically recalculates
+    // Budget Fixed Priority Logic:
+    // When ASW is locked and Weeks change, prioritize Budget and recalculate Stores
+    if (lockedFields.has('adSpendPerStoreWeek')) {
+      if (state.lastChanged === 'weeks') {
+        // User changes Weeks (W) -> Stores (S) automatically recalculates
         const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
         
         if (newStores !== state.stores) {
-          // Update stores without triggering the lastChanged tracking
           setState(prev => {
             return {
               ...prev,
@@ -445,7 +464,22 @@ export default function ROICalculator() {
             };
           });
         }
-      } else if (state.lastChanged === 'stores') {
+      } 
+      else if (state.lastChanged === 'budget' && !lockedFields.has('stores')) {
+        // User changes Budget (B) -> Stores (S) automatically recalculates
+        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
+        
+        if (newStores !== state.stores) {
+          setState(prev => {
+            return {
+              ...prev,
+              stores: newStores,
+              lastChanged: undefined
+            };
+          });
+        }
+      }
+      else if (state.lastChanged === 'stores' && !lockedFields.has('budget')) {
         // User changes Stores (S) -> Budget (B) automatically recalculates
         const newBudget = Math.max(0, Number((effectiveASW * state.stores * state.weeks).toFixed(2)));
         
@@ -454,66 +488,14 @@ export default function ROICalculator() {
             return {
               ...prev,
               budget: newBudget,
-              lastChanged: undefined // Reset lastChanged to prevent loops
-            };
-          });
-        }
-      } else if (state.lastChanged === 'weeks') {
-        // User changes Weeks (W) -> Stores (S) automatically recalculates
-        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
-        
-        if (newStores !== state.stores) {
-          setState(prev => {
-            return {
-              ...prev,
-              stores: newStores,
-              lastChanged: undefined // Reset lastChanged to prevent loops
+              lastChanged: undefined
             };
           });
         }
       }
     }
     
-    // Scenario 5: Budget (B) AND Ad Spend per Store per Week (ASW) are Locked
-    else if (lockedFields.has('adSpendPerStoreWeek') && lockedFields.has('budget') && !lockedFields.has('stores')) {
-      if (state.lastChanged === 'weeks') {
-        // User changes Weeks (W) -> Stores (S) automatically recalculates
-        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
-        
-        if (newStores !== state.stores) {
-          setState(prev => {
-            return {
-              ...prev,
-              stores: newStores,
-              lastChanged: undefined // Reset lastChanged to prevent loops
-            };
-          });
-        }
-      }
-    }
-    
-    // Scenario 6: Stores (S) AND Ad Spend per Store per Week (ASW) are Locked
-    else if (lockedFields.has('adSpendPerStoreWeek') && !lockedFields.has('budget') && lockedFields.has('stores')) {
-      if (state.lastChanged === 'weeks') {
-        // User changes Weeks (W) -> Budget (B) automatically recalculates
-        const newBudget = Math.max(0, Number((effectiveASW * state.stores * state.weeks).toFixed(2)));
-        
-        if (newBudget !== state.budget) {
-          setState(prev => {
-            return {
-              ...prev,
-              budget: newBudget,
-              lastChanged: undefined // Reset lastChanged to prevent loops
-            };
-          });
-        }
-      }
-    }
-    
-    // Other scenarios (1, 2, 4) don't require auto-adjustments of B, S, or W
-    // They just need the ASW to be recalculated, which happens automatically
-    
-  }, [state.budget, state.stores, state.weeks, lockedFields, state.lastChanged, lockedASWValue]);
+  }, [state.budget, state.stores, state.weeks, lockedFields, state.lastChanged, lockedASWValue, results.adSpendPerStoreWeek]);
 
   // Debounce the change handler for smoother slider interaction
   const debouncedHandleChange = useCallback(
@@ -724,37 +706,32 @@ export default function ROICalculator() {
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium text-primary-700">Ad Spend per Store per Week:</span>
                 <span className="text-lg font-semibold text-primary-900">
-                  {formatCurrency(results.adSpendPerStoreWeek)}
+                  {formatCurrency(results.adSpendPerStoreWeek, true)}
                 </span>
                 
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center space-x-1 ml-2">
-                        <i 
-                          className={`${
-                            results.intensityFeedback.level === 'Optimal'
-                              ? 'ri-checkbox-circle-fill text-success-600'
-                              : 'ri-error-warning-fill ' + 
-                                (results.intensityFeedback.level.includes('Low') 
-                                  ? 'text-warning-600' 
-                                  : results.intensityFeedback.level.includes('High') 
-                                  ? 'text-warning-600'
-                                  : 'text-danger-600')
-                          } text-lg`}
-                        ></i>
-                        <span 
-                          className={`text-sm font-medium ${
-                            results.intensityFeedback.level === 'Optimal'
-                              ? 'text-success-600'
-                              : results.intensityFeedback.level.includes('Low')
-                              ? 'text-warning-600'
-                              : results.intensityFeedback.level.includes('High')
-                              ? 'text-warning-600'
-                              : 'text-danger-600'
-                          }`}
-                        >
-                          ({results.intensityFeedback.level})
+                        <i className={`${
+                          results.intensityFeedback.icon === '✅'
+                            ? 'ri-checkbox-circle-fill'
+                            : 'ri-error-warning-fill'
+                        } ${
+                          results.intensityFeedback.color === 'green'
+                            ? 'text-green-600'
+                            : results.intensityFeedback.color === 'orange'
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        } text-lg`}></i>
+                        <span className={`text-sm font-medium ${
+                          results.intensityFeedback.color === 'green'
+                            ? 'text-green-600'
+                            : results.intensityFeedback.color === 'orange'
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        }`}>
+                          ({results.intensityFeedback.label})
                         </span>
                       </div>
                     </TooltipTrigger>
@@ -6105,60 +6082,128 @@ interface CalculatorState {
   lastChanged?: keyof Omit<CalculatorState, 'lastChanged'>; // Tracks last edited field for locking logic
 }
 
+// Constants
+const GENERIC_INTENSITY_THRESHOLDS = { VERY_LOW: 5, LOW: 15, MEDIUM: 30, HIGH: 50 };
+const REASONABLE_MAX_LIFT = 15.0; // %
+
 interface CalculationResult {
   expectedCampaignSales: number;
   expectedCampaignSalesPerStorePerWeek: number;
   totalAdSpendPerStore: number;
   adSpendPerStoreWeek: number;
-  intensityFeedback: { 
-    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; 
-    message: string 
+  intensityFeedback: {
+    label: string; // e.g., "(Optimal Spend / Realistic Target)"
+    icon: '✅' | '⚠️'; // Use actual icon characters or identifiers
+    color: 'green' | 'orange' | 'red'; // Conceptual color categories
+    message: string; // Detailed tooltip message from logic below
+    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; // Underlying intensity level
   };
-  expectedIncrementalSalesValueMin: number; // $ value
-  expectedIncrementalSalesValueMax: number; // $ value
-  userLiftMin: number; // % value from input state
-  userLiftMax: number; // % value from input state
+  expectedIncrementalSalesValueMin: number; // $ value based on userLiftMin
+  expectedIncrementalSalesValueMax: number; // $ value based on userLiftMax
+  userLiftMin: number; // Pass through user input %
+  userLiftMax: number; // Pass through user input %
   calculatedROASRatio?: number; // Optional Ratio
   calculatedROIPercentage?: number; // Optional %
-  stores: number; // Added for summary display
+  // Pass through state values needed for display
+  stores: number;
+  weeks: number;
+  budget: number;
 }
 
-// Intensity thresholds constants
-const GENERIC_INTENSITY_THRESHOLDS = { 
-  VERY_LOW: 5, 
-  LOW: 15, 
-  MEDIUM: 30, 
-  HIGH: 50 
-};
-
 // Helper function to get intensity feedback based on spend level
-function getIntensityFeedbackLogic(weeklySpend: number) {
-  if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.VERY_LOW) {
-    return {
-      level: 'Very Low' as const,
-      message: 'Spending is very low (<$5/store/wk). This may be insufficient to generate awareness and impact. Consider increasing your budget or reducing the number of test stores.'
-    };
-  } else if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.LOW) {
-    return {
-      level: 'Low' as const,
-      message: 'Spending is low ($5-$15/store/wk). This may limit your reach and frequency. Consider a modest budget increase if possible.'
-    };
-  } else if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
-    return {
-      level: 'Optimal' as const,
-      message: 'Spending is optimal ($15-$30/store/wk). This range balances visibility with efficiency for most retail campaigns.'
-    };
-  } else if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.HIGH) {
-    return {
-      level: 'High' as const,
-      message: 'Spending is high ($30-$50/store/wk). While this may drive strong awareness, it could reduce efficiency. Consider testing with a slightly lower budget.'
-    };
+function getIntensityFeedbackLogic(ASW: number, BSW: number, userLiftMin: number, userLiftMax: number): CalculationResult['intensityFeedback'] {
+  // Calculate break-even lift percentage
+  const breakEvenLiftPercent = (BSW > 0) ? (ASW / BSW) * 100 : Infinity;
+  
+  // Determine spend level category
+  let spendLevelCategory: 'Low' | 'Optimal' | 'High';
+  if (ASW < GENERIC_INTENSITY_THRESHOLDS.LOW) {
+    spendLevelCategory = 'Low';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
+    spendLevelCategory = 'Optimal';
   } else {
-    return {
-      level: 'Very High' as const,
-      message: 'Spending is very high (>$50/store/wk). Diminishing returns are likely at this level. Consider reducing your budget or expanding to more test stores.'
-    };
+    spendLevelCategory = 'High';
   }
+  
+  // Determine target realism
+  const targetRealism: 'Realistic' | 'Ambitious' = userLiftMax <= REASONABLE_MAX_LIFT ? 'Realistic' : 'Ambitious';
+  
+  // Determine detailed intensity level
+  let detailedIntensityLevel: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High';
+  if (ASW < GENERIC_INTENSITY_THRESHOLDS.VERY_LOW) {
+    detailedIntensityLevel = 'Very Low';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.LOW) {
+    detailedIntensityLevel = 'Low';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
+    detailedIntensityLevel = 'Optimal';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.HIGH) {
+    detailedIntensityLevel = 'High';
+  } else {
+    detailedIntensityLevel = 'Very High';
+  }
+  
+  // Format user lift range for display
+  const liftRangeDisplay = `${userLiftMin.toFixed(1)}%-${userLiftMax.toFixed(1)}%`;
+  
+  // Construct the feedback based on the scenarios
+  let label: string;
+  let icon: '✅' | '⚠️';
+  let color: 'green' | 'orange' | 'red';
+  let message: string;
+  
+  // Implement the 6 scenarios based on spend and target combinations
+  if (spendLevelCategory === 'Optimal' && targetRealism === 'Realistic') {
+    // Optimal/Realistic - Very positive
+    label = 'Optimal Spend / Realistic Target';
+    icon = '✅';
+    color = 'green';
+  } else if (spendLevelCategory === 'Low' && targetRealism === 'Realistic') {
+    // Low/Realistic - Cautious
+    label = 'Low Spend / Realistic Target';
+    icon = '⚠️';
+    color = 'orange';
+  } else if (spendLevelCategory === 'High' && targetRealism === 'Realistic') {
+    // High/Realistic - Cautious
+    label = 'High Spend / Realistic Target';
+    icon = '⚠️';
+    color = 'orange';
+  } else if (spendLevelCategory === 'Optimal' && targetRealism === 'Ambitious') {
+    // Optimal/Ambitious - Cautious
+    label = 'Optimal Spend / Ambitious Target';
+    icon = '⚠️';
+    color = 'orange';
+  } else if (spendLevelCategory === 'Low' && targetRealism === 'Ambitious') {
+    // Low/Ambitious - Warning
+    label = 'Low Spend / Ambitious Target';
+    icon = '⚠️';
+    color = 'red';
+  } else {
+    // High/Ambitious - Warning
+    label = 'High Spend / Ambitious Target';
+    icon = '⚠️';
+    color = 'red';
+  }
+  
+  // Construct the detailed message based on intensity level
+  if (detailedIntensityLevel === 'Very Low') {
+    message = `Spending is very low (<$${GENERIC_INTENSITY_THRESHOLDS.VERY_LOW}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Significant impact is unlikely at this level; consider increasing budget or reducing scope.`;
+  } else if (detailedIntensityLevel === 'Low') {
+    message = `Spending is low ($${GENERIC_INTENSITY_THRESHOLDS.VERY_LOW}-$${GENERIC_INTENSITY_THRESHOLDS.LOW}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Achieving target lift (${liftRangeDisplay}) may be challenging; consider a budget increase if lift target is high.`;
+  } else if (detailedIntensityLevel === 'Optimal') {
+    message = `Spending ($${GENERIC_INTENSITY_THRESHOLDS.LOW}-$${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}/store/wk) is optimal. Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Your target range (${liftRangeDisplay}) appears achievable ${userLiftMax > REASONABLE_MAX_LIFT ? 'though the upper target is ambitious (>15%)' : ''} and potentially profitable.`;
+  } else if (detailedIntensityLevel === 'High') {
+    message = `Spending is high ($${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}-$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which may be challenging to achieve' : ''}. Ensure tactics support this spend level and monitor for diminishing returns. Your upper target ${userLiftMax > REASONABLE_MAX_LIFT ? `(${userLiftMax.toFixed(1)}%) exceeds typical ranges (~15%)` : 'is within reasonable ranges'}.`;
+  } else {
+    message = `Spending is very high (>$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which is likely unachievable (>15%)' : ''}. Diminishing returns are very likely. Strongly consider optimizing budget/stores/weeks. ${userLiftMax > REASONABLE_MAX_LIFT ? `Your upper target (${userLiftMax.toFixed(1)}%) also exceeds typical ranges.` : ''}`;
+  }
+  
+  return {
+    label,
+    icon,
+    color,
+    message,
+    level: detailedIntensityLevel
+  };
 }
 
 // Main calculation function
@@ -6170,15 +6215,20 @@ export function calculateResults(state: CalculatorState): CalculationResult {
   const heroBaseline = state.heroBaseline || 0;
   
   // Calculate key metrics
+  const baselineSalesPerStorePerWeek = (heroBaseline / 52) / (stores || 1);
   const combinedWeeklyBaseline = heroBaseline / 52;
   const expectedCampaignSales = combinedWeeklyBaseline * weeks;
-  // Ensure this calculation is correct: heroBaseline / 52 / stores = weekly per store
-  const expectedCampaignSalesPerStorePerWeek = combinedWeeklyBaseline / stores;
+  const expectedCampaignSalesPerStorePerWeek = baselineSalesPerStorePerWeek;
   const totalAdSpendPerStore = budget / stores;
   const adSpendPerStoreWeek = totalAdSpendPerStore / weeks;
   
   // Get intensity feedback
-  const intensityFeedback = getIntensityFeedbackLogic(adSpendPerStoreWeek);
+  const intensityFeedback = getIntensityFeedbackLogic(
+    adSpendPerStoreWeek, 
+    baselineSalesPerStorePerWeek, 
+    state.userLiftMin, 
+    state.userLiftMax
+  );
   
   // Calculate lift values
   const liftMinDecimal = state.userLiftMin / 100;
@@ -6202,7 +6252,9 @@ export function calculateResults(state: CalculatorState): CalculationResult {
     userLiftMax: state.userLiftMax,
     calculatedROASRatio,
     calculatedROIPercentage,
-    stores // Include stores in the result
+    stores,
+    weeks,
+    budget
   };
 }
 ```
@@ -6210,7 +6262,7 @@ export function calculateResults(state: CalculatorState): CalculationResult {
 
 ## FILE: client/src/lib/formatUtils.ts
 ```
-// Format a number as currency (e.g., $1,234.56 or $1,235 for large amounts)
+// Format a number as currency (e.g., $1,234.56)
 export function formatCurrency(value: number, forceDecimals: boolean = false): string {
   // Handle very small numbers to prevent incorrect display
   if (Math.abs(value) < 0.01 && value !== 0) {
@@ -6235,6 +6287,18 @@ export function formatPercentage(value: number): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1
   }).format(value / 100);
+}
+
+// Format ROI (e.g., 12.3%)
+export function formatROI(value?: number): string {
+  if (value === undefined || !isFinite(value)) return "N/A";
+  return `${value.toFixed(1)}%`;
+}
+
+// Format ROAS (e.g., 1.23:1)
+export function formatROAS(value?: number): string {
+  if (value === undefined || !isFinite(value)) return "N/A";
+  return `${value.toFixed(2)}:1`;
 }
 ```
 
