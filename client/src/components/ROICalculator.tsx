@@ -165,10 +165,11 @@ export default function ROICalculator() {
       setState(prev => {
         if (field === 'budget' || field === 'stores' || field === 'heroBaseline' || 
             field === 'weeks' || field === 'userLiftMin' || field === 'userLiftMax') {
+          const lastChanged = field as LastChangedField;
           return {
             ...prev,
             [field]: validatedValue,
-            lastChanged: field
+            lastChanged
           };
         }
         return prev;
