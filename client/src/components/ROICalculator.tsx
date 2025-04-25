@@ -32,7 +32,7 @@ export default function ROICalculator() {
 
   // State for locked fields
   const [lockedFields, setLockedFields] = useState(
-    new Set<LockableField>([])
+    new Set<LockableField>(['budget', 'stores'])
   );
 
   // Store the locked ASW value separately
@@ -56,14 +56,14 @@ export default function ROICalculator() {
       ? (lockedASWValue ?? results.adSpendPerStoreWeek)
       : results.adSpendPerStoreWeek;
     
-    // Scenario 3: Only Ad Spend per Store per Week (ASW) is Locked
-    if (lockedFields.has('adSpendPerStoreWeek') && !lockedFields.has('budget') && !lockedFields.has('stores')) {
-      if (state.lastChanged === 'budget') {
-        // User changes Budget (B) -> Stores (S) automatically recalculates
+    // Budget Fixed Priority Logic:
+    // When ASW is locked and Weeks change, prioritize Budget and recalculate Stores
+    if (lockedFields.has('adSpendPerStoreWeek')) {
+      if (state.lastChanged === 'weeks') {
+        // User changes Weeks (W) -> Stores (S) automatically recalculates
         const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
         
         if (newStores !== state.stores) {
-          // Update stores without triggering the lastChanged tracking
           setState(prev => {
             return {
               ...prev,
@@ -72,7 +72,22 @@ export default function ROICalculator() {
             };
           });
         }
-      } else if (state.lastChanged === 'stores') {
+      } 
+      else if (state.lastChanged === 'budget' && !lockedFields.has('stores')) {
+        // User changes Budget (B) -> Stores (S) automatically recalculates
+        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
+        
+        if (newStores !== state.stores) {
+          setState(prev => {
+            return {
+              ...prev,
+              stores: newStores,
+              lastChanged: undefined
+            };
+          });
+        }
+      }
+      else if (state.lastChanged === 'stores' && !lockedFields.has('budget')) {
         // User changes Stores (S) -> Budget (B) automatically recalculates
         const newBudget = Math.max(0, Number((effectiveASW * state.stores * state.weeks).toFixed(2)));
         
@@ -81,66 +96,14 @@ export default function ROICalculator() {
             return {
               ...prev,
               budget: newBudget,
-              lastChanged: undefined // Reset lastChanged to prevent loops
-            };
-          });
-        }
-      } else if (state.lastChanged === 'weeks') {
-        // User changes Weeks (W) -> Stores (S) automatically recalculates
-        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
-        
-        if (newStores !== state.stores) {
-          setState(prev => {
-            return {
-              ...prev,
-              stores: newStores,
-              lastChanged: undefined // Reset lastChanged to prevent loops
+              lastChanged: undefined
             };
           });
         }
       }
     }
     
-    // Scenario 5: Budget (B) AND Ad Spend per Store per Week (ASW) are Locked
-    else if (lockedFields.has('adSpendPerStoreWeek') && lockedFields.has('budget') && !lockedFields.has('stores')) {
-      if (state.lastChanged === 'weeks') {
-        // User changes Weeks (W) -> Stores (S) automatically recalculates
-        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
-        
-        if (newStores !== state.stores) {
-          setState(prev => {
-            return {
-              ...prev,
-              stores: newStores,
-              lastChanged: undefined // Reset lastChanged to prevent loops
-            };
-          });
-        }
-      }
-    }
-    
-    // Scenario 6: Stores (S) AND Ad Spend per Store per Week (ASW) are Locked
-    else if (lockedFields.has('adSpendPerStoreWeek') && !lockedFields.has('budget') && lockedFields.has('stores')) {
-      if (state.lastChanged === 'weeks') {
-        // User changes Weeks (W) -> Budget (B) automatically recalculates
-        const newBudget = Math.max(0, Number((effectiveASW * state.stores * state.weeks).toFixed(2)));
-        
-        if (newBudget !== state.budget) {
-          setState(prev => {
-            return {
-              ...prev,
-              budget: newBudget,
-              lastChanged: undefined // Reset lastChanged to prevent loops
-            };
-          });
-        }
-      }
-    }
-    
-    // Other scenarios (1, 2, 4) don't require auto-adjustments of B, S, or W
-    // They just need the ASW to be recalculated, which happens automatically
-    
-  }, [state.budget, state.stores, state.weeks, lockedFields, state.lastChanged, lockedASWValue]);
+  }, [state.budget, state.stores, state.weeks, lockedFields, state.lastChanged, lockedASWValue, results.adSpendPerStoreWeek]);
 
   // Debounce the change handler for smoother slider interaction
   const debouncedHandleChange = useCallback(
@@ -351,37 +314,32 @@ export default function ROICalculator() {
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium text-primary-700">Ad Spend per Store per Week:</span>
                 <span className="text-lg font-semibold text-primary-900">
-                  {formatCurrency(results.adSpendPerStoreWeek)}
+                  {formatCurrency(results.adSpendPerStoreWeek, true)}
                 </span>
                 
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center space-x-1 ml-2">
-                        <i 
-                          className={`${
-                            results.intensityFeedback.level === 'Optimal'
-                              ? 'ri-checkbox-circle-fill text-success-600'
-                              : 'ri-error-warning-fill ' + 
-                                (results.intensityFeedback.level.includes('Low') 
-                                  ? 'text-warning-600' 
-                                  : results.intensityFeedback.level.includes('High') 
-                                  ? 'text-warning-600'
-                                  : 'text-danger-600')
-                          } text-lg`}
-                        ></i>
-                        <span 
-                          className={`text-sm font-medium ${
-                            results.intensityFeedback.level === 'Optimal'
-                              ? 'text-success-600'
-                              : results.intensityFeedback.level.includes('Low')
-                              ? 'text-warning-600'
-                              : results.intensityFeedback.level.includes('High')
-                              ? 'text-warning-600'
-                              : 'text-danger-600'
-                          }`}
-                        >
-                          ({results.intensityFeedback.level})
+                        <i className={`${
+                          results.intensityFeedback.icon === '✅'
+                            ? 'ri-checkbox-circle-fill'
+                            : 'ri-error-warning-fill'
+                        } ${
+                          results.intensityFeedback.color === 'green'
+                            ? 'text-green-600'
+                            : results.intensityFeedback.color === 'orange'
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        } text-lg`}></i>
+                        <span className={`text-sm font-medium ${
+                          results.intensityFeedback.color === 'green'
+                            ? 'text-green-600'
+                            : results.intensityFeedback.color === 'orange'
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        }`}>
+                          ({results.intensityFeedback.label})
                         </span>
                       </div>
                     </TooltipTrigger>
