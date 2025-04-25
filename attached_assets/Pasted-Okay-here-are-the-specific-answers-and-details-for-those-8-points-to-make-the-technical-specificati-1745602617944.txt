@@ -1,0 +1,45 @@
+Okay, here are the specific answers and details for those 8 points to make the technical specification prompt as complete and unambiguous as possible:
+
+1.  **Input Validation & Error Handling:**
+    * **Specification:** Implement inline validation for `InputField` components. If validation fails (e.g., negative value for Budget/Stores/Weeks/Baseline, `userLiftMax < userLiftMin`):
+        * Apply an error visual state to the relevant `InputField` (e.g., add a specific CSS class that results in a red border: `border-red-500`).
+        * Display a concise error message `Text` component directly below the invalid field (e.g., "Must be positive", "Upper bound must be >= lower bound").
+        * While any input validation error exists, the main calculation in `calculateResults` should effectively be disabled or return placeholder/null results. The "Expected Results" section should display default placeholder values (like "$0" or "-") or specific "Invalid Input" messages instead of calculated numbers.
+
+2.  **Edge Case Display (Infinity/NaN):**
+    * **Specification:** In `ResultsCard.tsx`, when displaying optional metrics (`calculatedROIPercentage`, `calculatedROASRatio`), check if the value received from props is `!isFinite(value)` (this catches `Infinity`, `-Infinity`, and `NaN`). If true, display the text **"N/A"** instead of a numerical value. Ensure `formatROI` and `formatROAS` functions in `formatUtils.ts` include this check.
+
+3.  **Exact Intensity Feedback Messages:**
+    * **Specification:** The `getIntensityFeedbackLogic` function in `calculationUtils.ts` should return the following exact `message` strings within the feedback object, corresponding to the final thresholds (<5 VL, 5-<15 L, 15-<30 M/Opt, 30-<50 H, >=50 VH) and incorporating the 15% reasonable max lift context:
+        * **Very Low (<$5):** "Spending is very low (<$5/store/wk). Break-even requires >{breakEvenLift}% lift. Significant impact is unlikely at this level; consider increasing budget or reducing scope."
+        * **Low ($5 to <$15):** "Spending is low ($5-$15/store/wk). Break-even requires >{breakEvenLift}% lift. Achieving target lift ({userLiftMin}%-{userLiftMax}%) may be challenging; consider a budget increase if lift target is high."
+        * **Optimal ($15 to <$30):** "Spending ($15-$30/store/wk) is optimal. Break-even requires >{breakEvenLift}% lift. Your target range ({userLiftMin}%-{userLiftMax}%) appears achievable {If userLiftMax > 15: 'though the upper target is ambitious (>15%)'} and potentially profitable."
+        * **High ($30 to <$50):** "Spending is high ($30-$50/store/wk). Break-even requires >{breakEvenLift}% lift {If breakEvenLift > 15: ', which may be challenging to achieve'}. Ensure tactics support this spend level and monitor for diminishing returns. Your upper target {If userLiftMax > 15: '(${userLiftMax}%) exceeds typical ranges (~15%)'}."
+        * **Very High (>= $50):** "Spending is very high (>${threshold}50/store/wk). Break-even requires >{breakEvenLift}% lift {If breakEvenLift > 15: ', which is likely unachievable (>15%)'}. Diminishing returns are very likely. Strongly consider optimizing budget/stores/weeks. {If userLiftMax > 15: 'Your upper target (${userLiftMax}%) also exceeds typical ranges.'}"
+        *(Replace bracketed placeholders like `{breakEvenLift}` with formatted percentages. Add conditional text based on checks against `REASONABLE_MAX_LIFT`)*.
+
+4.  **Locking Over-Constraint Behavior:**
+    * **Specification:** Implement logic within `ROICalculator.tsx`, likely affecting the `canLock` prop passed to `InputField` and the derived display's lock button: **Disable the lock button** for the third interdependent parameter (Budget, Stores, or Ad Spend per Store Week) when the other two are already present in the `lockedFields` Set.
+
+5.  **Rounding Rules for Automatic Adjustments:**
+    * **Specification:** When automatically recalculating values due to locks within the `useEffect` hook in `ROICalculator.tsx`:
+        * Round the recalculated `stores` value to the **nearest integer** using `Math.round()`.
+        * Round the recalculated `budget` value to **2 decimal places** (cents), ensuring it's stored as a number (e.g., using `Number(value.toFixed(2))`).
+
+6.  **Specific Icons and Colors:**
+    * **Specification:**
+        * **Icons (Remix Icon):** Use `ri-money-dollar-circle-line`, `ri-store-2-line`, `ri-calendar-line`, `ri-percent-line`, `ri-lock-fill`, `ri-lock-unlock-line`. For intensity feedback: `ri-checkbox-circle-fill` (for Optimal/Realistic combo) and `ri-error-warning-fill` (for all other combinations).
+        * **Colors (Tailwind/Theme):** Use semantic class names or CSS variables:
+            * Optimal/Realistic Feedback (Green): `text-green-600` (Ensure sufficient contrast)
+            * Caution Feedback (Yellow/Orange): `text-yellow-600` or `text-orange-600` (Ensure sufficient contrast)
+            * Warning Feedback (Red): `text-red-600` (Ensure sufficient contrast)
+            * Locked Input Border: `border-teal-500` (or use theme variable like `var(--teal-9)` if defined appropriately).
+            * Locked Input Background: `bg-teal-50` (or use RGBA like `rgba(0, 214, 208, 0.05)`).
+
+7.  **Default State Values:**
+    * **Specification:** Initialize `useState` for `CalculatorState` in `ROICalculator.tsx` with these exact values: `{ budget: 50000, stores: 100, heroBaseline: 1000000, weeks: 8, userLiftMin: 3.5, userLiftMax: 7.0 }`. Initialize `lockedFields` state with `new Set(['budget', 'stores'])`.
+
+8.  **Discrepancy Handling (Image vs Calc):**
+    * **Specification:** Instruct the developer: *"Prioritize displaying values calculated directly from the current user inputs and the defined logic in `calculationUtils.ts`. The reference image (`image_0b1ae1.jpg`) should be used primarily for UI layout, labels, and the *structure* of feedback/notes. If calculated values (like ASW $62.50 vs $62.51, or Total Ad Spend $500 vs $417) differ slightly from the static image due to rounding or previous inconsistencies, display the accurately calculated value. Ensure `formatCurrency` in `formatUtils.ts` uses `minimumFractionDigits: 2` to correctly display values like $19.23 for 'Expected Campaign Sales Per Store Per Week'."*
+
+Incorporating these 8 points explicitly into the refactoring prompt will provide maximum clarity for the developer.

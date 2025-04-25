@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatCurrency, formatPercentage } from "@/lib/formatUtils";
+import { formatCurrency, formatPercentage, formatROI, formatROAS } from "@/lib/formatUtils";
 import { Card } from "@/components/ui/card";
 
 interface ResultsCardProps {
@@ -8,9 +8,12 @@ interface ResultsCardProps {
   expectedCampaignSalesPerStorePerWeek: number;
   totalAdSpendPerStore: number;
   adSpendPerStoreWeek: number;
-  intensityFeedback: { 
-    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; 
-    message: string 
+  intensityFeedback: {
+    label: string; // e.g., "(Optimal Spend / Realistic Target)"
+    icon: '✅' | '⚠️'; // Use actual icon characters or identifiers
+    color: 'green' | 'orange' | 'red'; // Conceptual color categories
+    message: string; // Detailed tooltip message
+    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; // Underlying intensity level
   };
   expectedIncrementalSalesValueMin: number;
   expectedIncrementalSalesValueMax: number;
@@ -18,25 +21,25 @@ interface ResultsCardProps {
   userLiftMax: number;
   calculatedROASRatio?: number;
   calculatedROIPercentage?: number;
-  stores: number; // Added stores for correct summary display
+  stores: number;
+  weeks: number;
+  budget: number;
 }
 
 export default function ResultsCard(props: ResultsCardProps) {
   const [activeTab, setActiveTab] = useState('totals');
   
-  const formatROAS = (value?: number) => {
-    if (value === undefined || !isFinite(value)) return "N/A";
-    return `$${value.toFixed(2)} to $1.00 Spent`;
+  // Get the appropriate CSS class for the intensity feedback color
+  const getColorClass = (color: 'green' | 'orange' | 'red') => {
+    switch (color) {
+      case 'green': return 'text-green-600';
+      case 'orange': return 'text-yellow-600';
+      case 'red': return 'text-red-600';
+      default: return 'text-primary-600';
+    }
   };
   
-  const formatROI = (value?: number) => {
-    if (value === undefined || !isFinite(value)) return "N/A";
-    return `${value.toFixed(1)}%`;
-  };
-
-  const intensityClass = props.intensityFeedback.level === 'Optimal' 
-    ? 'text-success-600' 
-    : 'text-warning-600';
+  const intensityColorClass = getColorClass(props.intensityFeedback.color);
 
   return (
     <Card className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -86,11 +89,11 @@ export default function ResultsCard(props: ResultsCardProps) {
           {/* Dynamic Summary Text */}
           <div className="pt-2 border-t border-primary-200">
             <p className="text-sm text-primary-700 leading-relaxed">
-              With a <span className="font-medium">{formatCurrency(props.totalAdSpendPerStore * props.stores)}</span> budget 
+              With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget 
               across <span className="font-medium">{props.stores}</span> stores
-              for <span className="font-medium">{Math.round(props.totalAdSpendPerStore / props.adSpendPerStoreWeek)}</span> weeks, 
+              for <span className="font-medium">{props.weeks}</span> weeks, 
               your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
-              is in the <span className={`font-medium ${intensityClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range. 
+              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon} 
               {props.intensityFeedback.message}
             </p>
           </div>
@@ -127,12 +130,12 @@ export default function ResultsCard(props: ResultsCardProps) {
         </TabsContent>
         
         <TabsContent value="weekly" className="p-5 space-y-4">
-          {/* Weekly content would be similar but with weekly averages */}
+          {/* Weekly content */}
           {/* Expected Weekly Campaign Sales */}
           <div>
             <span className="block text-sm text-primary-500">Expected Weekly Campaign Sales</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedCampaignSales / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)}
+              {formatCurrency(props.expectedCampaignSales / props.weeks, false)}
             </span>
           </div>
           
@@ -140,8 +143,8 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Weekly Incremental Sales Range</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedIncrementalSalesValueMin / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)} - 
-              {formatCurrency(props.expectedIncrementalSalesValueMax / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)}
+              {formatCurrency(props.expectedIncrementalSalesValueMin / props.weeks, false)} - 
+              {formatCurrency(props.expectedIncrementalSalesValueMax / props.weeks, false)}
             </span>
             <span className="block text-xs text-primary-500">
               Based on +{props.userLiftMin.toFixed(1)}% to +{props.userLiftMax.toFixed(1)}% lift
@@ -152,7 +155,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Sales Per Store Per Week</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedCampaignSalesPerStorePerWeek)}
+              {formatCurrency(props.expectedCampaignSalesPerStorePerWeek, true)}
             </span>
           </div>
           
@@ -160,8 +163,20 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Weekly Ad Spend Per Store</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.adSpendPerStoreWeek)}
+              {formatCurrency(props.adSpendPerStoreWeek, true)}
             </span>
+          </div>
+          
+          {/* Dynamic Summary Text */}
+          <div className="pt-2 border-t border-primary-200">
+            <p className="text-sm text-primary-700 leading-relaxed">
+              With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget 
+              across <span className="font-medium">{props.stores}</span> stores
+              for <span className="font-medium">{props.weeks}</span> weeks, 
+              your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
+              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon} 
+              {props.intensityFeedback.message}
+            </p>
           </div>
           
           {/* Performance Metrics */}
@@ -181,6 +196,10 @@ export default function ResultsCard(props: ResultsCardProps) {
                 {formatROAS(props.calculatedROASRatio)}
               </span>
             </div>
+            
+            <p className="text-xs text-primary-500">
+              Based on your maximum lift input of +{props.userLiftMax.toFixed(1)}%
+            </p>
           </div>
           
           {/* Notes Section */}

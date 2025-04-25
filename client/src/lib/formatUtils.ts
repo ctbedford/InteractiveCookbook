@@ -1,4 +1,4 @@
-// Format a number as currency (e.g., $1,234.56 or $1,235 for large amounts)
+// Format a number as currency (e.g., $1,234.56)
 export function formatCurrency(value: number, forceDecimals: boolean = false): string {
   // Handle very small numbers to prevent incorrect display
   if (Math.abs(value) < 0.01 && value !== 0) {
@@ -23,4 +23,16 @@ export function formatPercentage(value: number): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1
   }).format(value / 100);
+}
+
+// Format ROI (e.g., 12.3%)
+export function formatROI(value?: number): string {
+  if (value === undefined || !isFinite(value)) return "N/A";
+  return `${value.toFixed(1)}%`;
+}
+
+// Format ROAS (e.g., 1.23:1)
+export function formatROAS(value?: number): string {
+  if (value === undefined || !isFinite(value)) return "N/A";
+  return `${value.toFixed(2)}:1`;
 }

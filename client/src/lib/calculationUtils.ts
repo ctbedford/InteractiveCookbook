@@ -8,60 +8,128 @@ interface CalculatorState {
   lastChanged?: keyof Omit<CalculatorState, 'lastChanged'>; // Tracks last edited field for locking logic
 }
 
+// Constants
+const GENERIC_INTENSITY_THRESHOLDS = { VERY_LOW: 5, LOW: 15, MEDIUM: 30, HIGH: 50 };
+const REASONABLE_MAX_LIFT = 15.0; // %
+
 interface CalculationResult {
   expectedCampaignSales: number;
   expectedCampaignSalesPerStorePerWeek: number;
   totalAdSpendPerStore: number;
   adSpendPerStoreWeek: number;
-  intensityFeedback: { 
-    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; 
-    message: string 
+  intensityFeedback: {
+    label: string; // e.g., "(Optimal Spend / Realistic Target)"
+    icon: '✅' | '⚠️'; // Use actual icon characters or identifiers
+    color: 'green' | 'orange' | 'red'; // Conceptual color categories
+    message: string; // Detailed tooltip message from logic below
+    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; // Underlying intensity level
   };
-  expectedIncrementalSalesValueMin: number; // $ value
-  expectedIncrementalSalesValueMax: number; // $ value
-  userLiftMin: number; // % value from input state
-  userLiftMax: number; // % value from input state
+  expectedIncrementalSalesValueMin: number; // $ value based on userLiftMin
+  expectedIncrementalSalesValueMax: number; // $ value based on userLiftMax
+  userLiftMin: number; // Pass through user input %
+  userLiftMax: number; // Pass through user input %
   calculatedROASRatio?: number; // Optional Ratio
   calculatedROIPercentage?: number; // Optional %
-  stores: number; // Added for summary display
+  // Pass through state values needed for display
+  stores: number;
+  weeks: number;
+  budget: number;
 }
 
-// Intensity thresholds constants
-const GENERIC_INTENSITY_THRESHOLDS = { 
-  VERY_LOW: 5, 
-  LOW: 15, 
-  MEDIUM: 30, 
-  HIGH: 50 
-};
-
 // Helper function to get intensity feedback based on spend level
-function getIntensityFeedbackLogic(weeklySpend: number) {
-  if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.VERY_LOW) {
-    return {
-      level: 'Very Low' as const,
-      message: 'Spending is very low (<$5/store/wk). This may be insufficient to generate awareness and impact. Consider increasing your budget or reducing the number of test stores.'
-    };
-  } else if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.LOW) {
-    return {
-      level: 'Low' as const,
-      message: 'Spending is low ($5-$15/store/wk). This may limit your reach and frequency. Consider a modest budget increase if possible.'
-    };
-  } else if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
-    return {
-      level: 'Optimal' as const,
-      message: 'Spending is optimal ($15-$30/store/wk). This range balances visibility with efficiency for most retail campaigns.'
-    };
-  } else if (weeklySpend < GENERIC_INTENSITY_THRESHOLDS.HIGH) {
-    return {
-      level: 'High' as const,
-      message: 'Spending is high ($30-$50/store/wk). While this may drive strong awareness, it could reduce efficiency. Consider testing with a slightly lower budget.'
-    };
+function getIntensityFeedbackLogic(ASW: number, BSW: number, userLiftMin: number, userLiftMax: number): CalculationResult['intensityFeedback'] {
+  // Calculate break-even lift percentage
+  const breakEvenLiftPercent = (BSW > 0) ? (ASW / BSW) * 100 : Infinity;
+  
+  // Determine spend level category
+  let spendLevelCategory: 'Low' | 'Optimal' | 'High';
+  if (ASW < GENERIC_INTENSITY_THRESHOLDS.LOW) {
+    spendLevelCategory = 'Low';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
+    spendLevelCategory = 'Optimal';
   } else {
-    return {
-      level: 'Very High' as const,
-      message: 'Spending is very high (>$50/store/wk). Diminishing returns are likely at this level. Consider reducing your budget or expanding to more test stores.'
-    };
+    spendLevelCategory = 'High';
   }
+  
+  // Determine target realism
+  const targetRealism: 'Realistic' | 'Ambitious' = userLiftMax <= REASONABLE_MAX_LIFT ? 'Realistic' : 'Ambitious';
+  
+  // Determine detailed intensity level
+  let detailedIntensityLevel: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High';
+  if (ASW < GENERIC_INTENSITY_THRESHOLDS.VERY_LOW) {
+    detailedIntensityLevel = 'Very Low';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.LOW) {
+    detailedIntensityLevel = 'Low';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
+    detailedIntensityLevel = 'Optimal';
+  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.HIGH) {
+    detailedIntensityLevel = 'High';
+  } else {
+    detailedIntensityLevel = 'Very High';
+  }
+  
+  // Format user lift range for display
+  const liftRangeDisplay = `${userLiftMin.toFixed(1)}%-${userLiftMax.toFixed(1)}%`;
+  
+  // Construct the feedback based on the scenarios
+  let label: string;
+  let icon: '✅' | '⚠️';
+  let color: 'green' | 'orange' | 'red';
+  let message: string;
+  
+  // Implement the 6 scenarios based on spend and target combinations
+  if (spendLevelCategory === 'Optimal' && targetRealism === 'Realistic') {
+    // Optimal/Realistic - Very positive
+    label = 'Optimal Spend / Realistic Target';
+    icon = '✅';
+    color = 'green';
+  } else if (spendLevelCategory === 'Low' && targetRealism === 'Realistic') {
+    // Low/Realistic - Cautious
+    label = 'Low Spend / Realistic Target';
+    icon = '⚠️';
+    color = 'orange';
+  } else if (spendLevelCategory === 'High' && targetRealism === 'Realistic') {
+    // High/Realistic - Cautious
+    label = 'High Spend / Realistic Target';
+    icon = '⚠️';
+    color = 'orange';
+  } else if (spendLevelCategory === 'Optimal' && targetRealism === 'Ambitious') {
+    // Optimal/Ambitious - Cautious
+    label = 'Optimal Spend / Ambitious Target';
+    icon = '⚠️';
+    color = 'orange';
+  } else if (spendLevelCategory === 'Low' && targetRealism === 'Ambitious') {
+    // Low/Ambitious - Warning
+    label = 'Low Spend / Ambitious Target';
+    icon = '⚠️';
+    color = 'red';
+  } else {
+    // High/Ambitious - Warning
+    label = 'High Spend / Ambitious Target';
+    icon = '⚠️';
+    color = 'red';
+  }
+  
+  // Construct the detailed message based on intensity level
+  if (detailedIntensityLevel === 'Very Low') {
+    message = `Spending is very low (<$${GENERIC_INTENSITY_THRESHOLDS.VERY_LOW}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Significant impact is unlikely at this level; consider increasing budget or reducing scope.`;
+  } else if (detailedIntensityLevel === 'Low') {
+    message = `Spending is low ($${GENERIC_INTENSITY_THRESHOLDS.VERY_LOW}-$${GENERIC_INTENSITY_THRESHOLDS.LOW}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Achieving target lift (${liftRangeDisplay}) may be challenging; consider a budget increase if lift target is high.`;
+  } else if (detailedIntensityLevel === 'Optimal') {
+    message = `Spending ($${GENERIC_INTENSITY_THRESHOLDS.LOW}-$${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}/store/wk) is optimal. Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Your target range (${liftRangeDisplay}) appears achievable ${userLiftMax > REASONABLE_MAX_LIFT ? 'though the upper target is ambitious (>15%)' : ''} and potentially profitable.`;
+  } else if (detailedIntensityLevel === 'High') {
+    message = `Spending is high ($${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}-$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which may be challenging to achieve' : ''}. Ensure tactics support this spend level and monitor for diminishing returns. Your upper target ${userLiftMax > REASONABLE_MAX_LIFT ? `(${userLiftMax.toFixed(1)}%) exceeds typical ranges (~15%)` : 'is within reasonable ranges'}.`;
+  } else {
+    message = `Spending is very high (>$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which is likely unachievable (>15%)' : ''}. Diminishing returns are very likely. Strongly consider optimizing budget/stores/weeks. ${userLiftMax > REASONABLE_MAX_LIFT ? `Your upper target (${userLiftMax.toFixed(1)}%) also exceeds typical ranges.` : ''}`;
+  }
+  
+  return {
+    label,
+    icon,
+    color,
+    message,
+    level: detailedIntensityLevel
+  };
 }
 
 // Main calculation function
@@ -73,15 +141,20 @@ export function calculateResults(state: CalculatorState): CalculationResult {
   const heroBaseline = state.heroBaseline || 0;
   
   // Calculate key metrics
+  const baselineSalesPerStorePerWeek = (heroBaseline / 52) / (stores || 1);
   const combinedWeeklyBaseline = heroBaseline / 52;
   const expectedCampaignSales = combinedWeeklyBaseline * weeks;
-  // Ensure this calculation is correct: heroBaseline / 52 / stores = weekly per store
-  const expectedCampaignSalesPerStorePerWeek = combinedWeeklyBaseline / stores;
+  const expectedCampaignSalesPerStorePerWeek = baselineSalesPerStorePerWeek;
   const totalAdSpendPerStore = budget / stores;
   const adSpendPerStoreWeek = totalAdSpendPerStore / weeks;
   
   // Get intensity feedback
-  const intensityFeedback = getIntensityFeedbackLogic(adSpendPerStoreWeek);
+  const intensityFeedback = getIntensityFeedbackLogic(
+    adSpendPerStoreWeek, 
+    baselineSalesPerStorePerWeek, 
+    state.userLiftMin, 
+    state.userLiftMax
+  );
   
   // Calculate lift values
   const liftMinDecimal = state.userLiftMin / 100;
@@ -105,6 +178,8 @@ export function calculateResults(state: CalculatorState): CalculationResult {
     userLiftMax: state.userLiftMax,
     calculatedROASRatio,
     calculatedROIPercentage,
-    stores // Include stores in the result
+    stores,
+    weeks,
+    budget
   };
 }

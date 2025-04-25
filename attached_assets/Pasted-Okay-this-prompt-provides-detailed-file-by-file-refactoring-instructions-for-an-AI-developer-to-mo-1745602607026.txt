@@ -1,0 +1,106 @@
+Okay, this prompt provides detailed, file-by-file refactoring instructions for an AI developer to modify the codebase provided in `app_code_export (1).txt` and implement the final specification for the internal Campaign Scenario Planner, including the combined intensity/achievability feedback.
+
+---
+
+**Refactoring Prompt: Implement Final Internal Campaign Scenario Planner Logic in Existing Codebase**
+
+**1. Overall Goal:**
+Refactor the React/TypeScript application codebase provided in `app_code_export (1).txt` to align with the final specifications for the internal ROI calculator. This involves modifying state management, calculation logic, UI components (`ROICalculator.tsx`, `ResultsCard.tsx`, `InputField.tsx`), and utility functions (`calculationUtils.ts`, `formatUtils.ts`) to implement simplified calculations, user-defined lift inputs, specific output metrics, refined locking behavior (Budget fixed priority), and the combined intensity/achievability feedback mechanism. Remove all unused code related to Product Category, Gross Margin, dynamic benchmarks, and external CTAs.
+
+**2. Refactor Calculation Logic (`./client/src/lib/calculationUtils.ts`)**
+
+* **Define Constants:** At the top, add:
+    ```typescript
+    const GENERIC_INTENSITY_THRESHOLDS = { VERY_LOW: 5, LOW: 15, MEDIUM: 30, HIGH: 50 };
+    const REASONABLE_MAX_LIFT = 15.0; // %
+    ```
+* **Update `CalculationResult` Interface:** Modify the existing interface to exactly match this structure (ensure no profit fields remain):
+    ```typescript
+    interface CalculationResult {
+      expectedCampaignSales: number;
+      expectedCampaignSalesPerStorePerWeek: number;
+      totalAdSpendPerStore: number;
+      adSpendPerStoreWeek: number;
+      intensityFeedback: {
+        label: string; // e.g., "(Optimal Spend / Realistic Target)"
+        icon: '✅' | '⚠️'; // Use actual icon characters or identifiers
+        color: 'green' | 'orange' | 'red'; // Conceptual color categories
+        message: string; // Detailed tooltip message from logic below
+        level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; // Underlying intensity level
+      };
+      expectedIncrementalSalesValueMin: number; // $ value based on userLiftMin
+      expectedIncrementalSalesValueMax: number; // $ value based on userLiftMax
+      userLiftMin: number; // Pass through user input %
+      userLiftMax: number; // Pass through user input %
+      calculatedROASRatio?: number; // Optional Ratio
+      calculatedROIPercentage?: number; // Optional %
+      // Pass through state values needed for display
+      stores: number;
+      weeks: number;
+      budget: number;
+    }
+    ```
+* **Rewrite `getIntensityFeedbackLogic` Function:** Replace the existing function with this new logic:
+    * **Signature:** `function getIntensityFeedbackLogic(ASW: number, BSW: number, userLiftMin: number, userLiftMax: number): CalculationResult['intensityFeedback']`
+    * **Calculate Break-even:** `const breakEvenLiftPercent = (BSW > 0) ? (ASW / BSW) * 100 : Infinity;`
+    * **Determine States:**
+        * `spendLevelCategory`: `'Low'` (ASW < 15), `'Optimal'` (15 <= ASW < 30), `'High'` (ASW >= 30).
+        * `targetRealism`: `'Realistic'` (userLiftMax <= REASONABLE_MAX_LIFT), `'Ambitious'` (userLiftMax > REASONABLE_MAX_LIFT).
+        * `detailedIntensityLevel`: Determine based on ASW vs thresholds (<5 VL, 5-<15 L, 15-<30 M, 30-<50 H, >=50 VH).
+    * **Implement 6 Scenarios:** Use nested `if/else` or similar to cover all 6 combinations of `spendLevelCategory` and `targetRealism`.
+    * **Return Object:** For each scenario, return an object `{ label: string, icon: '✅' | '⚠️', color: 'green' | 'orange' | 'red', message: string, level: detailedIntensityLevel }`. Construct the `label` (e.g., `'(Optimal Spend / Realistic Target)'`) and the detailed tooltip `message` using the templates previously defined (incorporating formatted ASW, break-even%, lift range, intensity details, achievability comments vs 15% max, directives, and check if break-even > 15%).
+* **Modify `calculateResults` Function:**
+    * Update input parameter type to simplified `CalculatorState`.
+    * Remove any remaining code related to `productCategory`, `grossMargin`, dynamic lift modifiers (focus, lifecycle, retailer), seasonality, or velocity adjustments.
+    * Ensure calculations for `expectedCampaignSales`, `totalAdSpendPerStore`, `adSpendPerStoreWeek` use the simplified direct formulas.
+    * Add calculation: `const baselineSalesPerStorePerWeek = (state.heroBaseline / 52) / (stores || 1);` (define `stores = state.stores || 1` etc. safely).
+    * Call the *new* `getIntensityFeedbackLogic`, passing all required arguments. Store the returned object in `intensityFeedback`.
+    * Ensure `expectedIncrementalSalesValueMin/Max` are calculated using `state.userLiftMin/Max`.
+    * Ensure optional `calculatedROASRatio`/`Percentage` are calculated (handle `Infinity`).
+    * Update the return statement to match the modified `CalculationResult` interface precisely, including passing through `stores`, `weeks`, `budget`, `userLiftMin`, `userLiftMax`.
+
+**3. Refactor Core UI Component (`./client/src/components/ROICalculator.tsx`)**
+
+* **Update State (`CalculatorState` Interface, `useState` Hook[cite: 60]):** Remove `productCategory` and `grossMargin` from the interface and initial state. Ensure `lockedFields`[cite: 61] is initialized correctly (`new Set(['budget', 'stores'])`). Add `lockedASWValue` state hook[cite: 62].
+* **Update Inputs:**
+    * Remove any `InputField` for "Product Category".
+    * Ensure Lift Sliders (`InputField` type="number", useSlider=true) for `userLiftMin`/`Max` are present, correctly bound, display the % value, and use debounce[cite: 83]. Implement UI validation indication if `userLiftMin > userLiftMax`.
+* **Update Derived Weekly Spend Display & Feedback:**
+    * Modify the `div` containing the "Ad Spend per Store per Week" display.
+    * Use `results.adSpendPerStoreWeek` for the value.
+    * Implement the **Combined Feedback Display**:
+        * Use an `<i>` tag for the icon (`results.intensityFeedback.icon`).
+        * Apply Tailwind classes for color based on `results.intensityFeedback.color` (e.g., `text-green-600`, `text-yellow-600`, `text-red-600`). Ensure these utility classes exist or use appropriate theme variables. Verify contrast.
+        * Display the text label: `(${results.intensityFeedback.label})`. Apply the same color class.
+        * Wrap the icon/text `div` in `<TooltipTrigger>`.
+        * Use `<TooltipContent>` from `@/components/ui/tooltip`[cite: 3] to display the detailed `results.intensityFeedback.message`.
+    * Update Lock `div`:
+        * Bind `onClick` to `handleLock('adSpendPerStoreWeek')`.
+        * Set `disabled` prop/classes based on `!(lockedFields.has('budget') && lockedFields.has('stores'))`.
+        * Display lock icon/text based on `lockedFields.has('adSpendPerStoreWeek')`.
+* **Update Locking Logic (`useEffect`, `handleLock`):**
+    * Modify `handleLock` to set/clear `lockedASWValue` state when 'adSpendPerStoreWeek' is toggled. Implement over-constraint prevention check before adding lock.
+    * Rewrite the locking `useEffect` dependencies: `[state.budget, state.stores, state.weeks, lockedFields, state.lastChanged, lockedASWValue, results.adSpendPerStoreWeek]` (need calculated ASW if lock value not set).
+    * Implement the logic precisely: Use `effectiveASW = lockedASWValue ?? results.adSpendPerStoreWeek`. Prioritize **Budget Fixed**: If ASW locked & Weeks changed, recalc `stores` using `state.budget` and `effectiveASW`, round to integer, check >= 1, call `setState` resetting `lastChanged`. Implement other ASW lock scenarios (Budget change -> recalc Stores; Stores change -> recalc Budget, round Budget to 2 decimals).
+* **Update Props Passed to `ResultsCard`:** Pass `results` spread: `<ResultsCard {...results} />`.
+
+**4. Refactor Results Display (`./client/src/components/ResultsCard.tsx`)**
+
+* **Update `ResultsCardProps` Interface:** Ensure it matches the final `CalculationResult` structure (no profit, add pass-throughs).
+* **Update Rendering (`TabsContent`):**
+    * Display metrics with labels/values matching `image_0b1ae1.jpg`: `expectedCampaignSales`, `expectedIncrementalSalesValueMin/Max` (with user lift sub-label), `expectedCampaignSalesPerStorePerWeek` (fix currency formatting), `totalAdSpendPerStore`. Use `formatCurrency` from `lib/formatUtils.ts`.
+    * Update dynamic summary text: Ensure it uses `props.budget` correctly and interpolates `{props.intensityFeedback.message}`.
+    * Update "Additional Performance Metrics": Display formatted `props.calculatedROIPercentage` / `Ratio`. Handle "N/A" display for `Infinity`. Update sub-label with `props.userLiftMax`.
+    * Update Notes section to only include the final two disclaimer lines shown in the image.
+
+**5. Refactor Formatting (`./client/src/lib/formatUtils.ts`)**
+
+* Ensure `formatCurrency` uses `minimumFractionDigits: 2` consistently or as needed for clarity (especially for per-store-per-week values).
+* Implement `formatROI(value?: number): string` and `formatROAS(value?: number): string` functions. They should return "N/A" if `value` is undefined or `!isFinite(value)`, otherwise format ROI as "X.X%" and ROAS as "Y.YY:1".
+* Keep `formatPercentage`.
+
+**6. Cleanup (`./client/src/lib/benchmarkData.ts`)**
+
+* **Action:** Delete this file. Remove all imports referencing it. Define `GENERIC_INTENSITY_THRESHOLDS` and `REASONABLE_MAX_LIFT` directly in `calculationUtils.ts`.
+
+Execute these refactoring steps precisely to transform the provided codebase into the specified internal Campaign Scenario Planner.
