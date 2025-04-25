@@ -1,0 +1,65 @@
+Here’s why the calculator “thrashes” (values flash, jump, or refuse to stay locked) and how to stabilise it.
+
+---
+
+### 🔍  What’s going wrong
+
+1. **“Locked” ASW isn’t actually locked**  
+   *Inside `ROICalculator` you treat the current `results.adSpendPerStoreWeek` as “the locked value”*:
+
+   ```ts
+   const lockedASW = results.adSpendPerStoreWeek;
+   ```  
+
+   But `results` is recomputed every time **any** of `budget`, `stores`, or `weeks` changes → `lockedASW` changes too → your downstream maths recalculates **again**, so the UI ping-pongs between two numbers. 
+
+2. **Circular state updates inside `useEffect`**  
+   *The inter-dependency effect both **reads** and **writes** the same pieces of state it depends on* (`state.budget`, `state.stores`, `state.weeks`, `results.adSpendPerStoreWeek`).  
+   React runs the effect → it calls `setState` → a new render happens → the effect runs again, often with a slightly different `lockedASW`, producing an infinite “tug-of-war” that users perceive as flicker.
+
+3. **`lastChanged` flag never reset**  
+   When the effect auto-modifies a sibling field you leave `lastChanged` pointing at the *original* user-edited field. On the next render the effect still thinks the *same* field was “just” edited, so it keeps firing. 
+
+4. **Sliders fire dozens of rapid updates**  
+   Every 10 ms drag tick re-enters the cycle above. With the loop bugs still present, the UI can’t keep up and visibly flashes.
+
+---
+
+### 🛠️  Quick fixes (minimal changes)
+
+| Problem | Fix |
+|---------|-----|
+| **Locked value mutates** | Store it once: ```const [lockedASW,setLockedASW]=useState<number|null>(null);```  → when user presses the lock button, call `setLockedASW(results.adSpendPerStoreWeek)`.  When they unlock, set it back to `null`.  In the effect use `const lockedASW = lockedFields.has('adSpendPerStoreWeek') ? (lockedASWState ?? results.adSpendPerStoreWeek) : results.adSpendPerStoreWeek;` |
+| **Infinite effect loop** | *Remove* `results.adSpendPerStoreWeek` from the dependency list.  The effect should depend on the *source* state, **not** on a derived calculation that itself depends on that same state. |
+| **`lastChanged` never reset** | After an *automatic* correction (`setState(prev => …)`), add `lastChanged: undefined` so the effect exits on the next render. |
+| **Slider flood** | Debounce slider output: wrap `onValueChange` with `lodash.debounce` (≈ 150 ms) or lift the slider’s transient value into local state and commit on `onValueCommit`. |
+
+---
+
+### 🚀  “Better architecture” option (30 min refactor)
+
+1. **Switch to `useReducer`**  
+   Put *all* calculator logic—including locking rules—inside one reducer.  
+   ```ts
+   type Action =
+     | {type:'edit', field:keyof State, value:number}
+     | {type:'toggleLock', field:LockableField};
+   ```  
+   The reducer can deterministically compute the *next* state in one place, so there are **zero** cross-field `useEffect` loops.
+
+2. **Keep derived values out of React state**  
+   Return them from `useMemo(calculateResults, [state])`; this is fast and eliminates the risk of stale or double-derived data.
+
+3. **One source of truth for locks**  
+   Store `{budget:boolean, stores:boolean, asw:boolean, lockedASW?:number}` in reducer state so the rule engine always knows the frozen value.
+
+---
+
+### ✅  End-state behaviour checklist
+
+* ASW lock **never** changes unless explicitly unlocked.  
+* Changing `weeks` while **Budget + ASW** locked only updates `stores`.  
+* `lastChanged` (or reducer’s `action.type`) always reflects the *latest* *user* interaction—never internal adjustments.  
+* No effect functions call `setState` for values they already depend on.
+
+Once these fixes are applied the UI should feel solid: no flashing, immediate feedback, and locks honoured exactly as specced.

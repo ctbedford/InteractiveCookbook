@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import InputField from "./InputField";
 import ResultsCard from "./ResultsCard";
 import { calculateResults } from "@/lib/calculationUtils";
 import { formatCurrency } from "@/lib/formatUtils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import debounce from "lodash.debounce";
 
 type LockableField = 'budget' | 'stores' | 'adSpendPerStoreWeek';
 type LastChangedField = 'budget' | 'stores' | 'heroBaseline' | 'weeks' | 'userLiftMin' | 'userLiftMax';
@@ -34,6 +35,9 @@ export default function ROICalculator() {
     new Set<LockableField>(['budget'])
   );
 
+  // Store the locked ASW value separately
+  const [lockedASWValue, setLockedASWValue] = useState<number | null>(null);
+
   // State for calculation results
   const [results, setResults] = useState(calculateResults(state));
 
@@ -47,44 +51,50 @@ export default function ROICalculator() {
     // Safety check
     if (!state.lastChanged) return;
     
-    const lockedASW = results.adSpendPerStoreWeek;
+    // Use the stored locked ASW value if available, otherwise use the current calculated value
+    const effectiveASW = lockedFields.has('adSpendPerStoreWeek')
+      ? (lockedASWValue ?? results.adSpendPerStoreWeek)
+      : results.adSpendPerStoreWeek;
     
     // Scenario 3: Only Ad Spend per Store per Week (ASW) is Locked
     if (lockedFields.has('adSpendPerStoreWeek') && !lockedFields.has('budget') && !lockedFields.has('stores')) {
       if (state.lastChanged === 'budget') {
         // User changes Budget (B) -> Stores (S) automatically recalculates
-        const newStores = Math.max(1, Math.round(state.budget / (lockedASW * state.weeks)));
+        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
         
         if (newStores !== state.stores) {
           // Update stores without triggering the lastChanged tracking
           setState(prev => {
             return {
               ...prev,
-              stores: newStores
+              stores: newStores,
+              lastChanged: undefined // Reset lastChanged to prevent loops
             };
           });
         }
       } else if (state.lastChanged === 'stores') {
         // User changes Stores (S) -> Budget (B) automatically recalculates
-        const newBudget = Math.max(0, Number((lockedASW * state.stores * state.weeks).toFixed(2)));
+        const newBudget = Math.max(0, Number((effectiveASW * state.stores * state.weeks).toFixed(2)));
         
         if (newBudget !== state.budget) {
           setState(prev => {
             return {
               ...prev,
-              budget: newBudget
+              budget: newBudget,
+              lastChanged: undefined // Reset lastChanged to prevent loops
             };
           });
         }
       } else if (state.lastChanged === 'weeks') {
         // User changes Weeks (W) -> Stores (S) automatically recalculates
-        const newStores = Math.max(1, Math.round(state.budget / (lockedASW * state.weeks)));
+        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
         
         if (newStores !== state.stores) {
           setState(prev => {
             return {
               ...prev,
-              stores: newStores
+              stores: newStores,
+              lastChanged: undefined // Reset lastChanged to prevent loops
             };
           });
         }
@@ -95,13 +105,14 @@ export default function ROICalculator() {
     else if (lockedFields.has('adSpendPerStoreWeek') && lockedFields.has('budget') && !lockedFields.has('stores')) {
       if (state.lastChanged === 'weeks') {
         // User changes Weeks (W) -> Stores (S) automatically recalculates
-        const newStores = Math.max(1, Math.round(state.budget / (lockedASW * state.weeks)));
+        const newStores = Math.max(1, Math.round(state.budget / (effectiveASW * state.weeks)));
         
         if (newStores !== state.stores) {
           setState(prev => {
             return {
               ...prev,
-              stores: newStores
+              stores: newStores,
+              lastChanged: undefined // Reset lastChanged to prevent loops
             };
           });
         }
@@ -112,13 +123,14 @@ export default function ROICalculator() {
     else if (lockedFields.has('adSpendPerStoreWeek') && !lockedFields.has('budget') && lockedFields.has('stores')) {
       if (state.lastChanged === 'weeks') {
         // User changes Weeks (W) -> Budget (B) automatically recalculates
-        const newBudget = Math.max(0, Number((lockedASW * state.stores * state.weeks).toFixed(2)));
+        const newBudget = Math.max(0, Number((effectiveASW * state.stores * state.weeks).toFixed(2)));
         
         if (newBudget !== state.budget) {
           setState(prev => {
             return {
               ...prev,
-              budget: newBudget
+              budget: newBudget,
+              lastChanged: undefined // Reset lastChanged to prevent loops
             };
           });
         }
@@ -128,37 +140,71 @@ export default function ROICalculator() {
     // Other scenarios (1, 2, 4) don't require auto-adjustments of B, S, or W
     // They just need the ASW to be recalculated, which happens automatically
     
-  }, [state.budget, state.stores, state.weeks, lockedFields, state.lastChanged, results.adSpendPerStoreWeek]);
+  }, [state.budget, state.stores, state.weeks, lockedFields, state.lastChanged, lockedASWValue]);
 
+  // Debounce the change handler for smoother slider interaction
+  const debouncedHandleChange = useCallback(
+    debounce((field: keyof CalculatorState, value: number) => {
+      // Basic validation
+      let validatedValue = value;
+      
+      // Field-specific validations
+      if (field === 'budget' || field === 'heroBaseline') {
+        validatedValue = Math.max(0, value);
+      } else if (field === 'stores') {
+        validatedValue = Math.max(1, value);
+      } else if (field === 'weeks') {
+        validatedValue = Math.min(Math.max(1, value), 52);
+      } else if (field === 'userLiftMin') {
+        validatedValue = Math.min(Math.max(0, value), state.userLiftMax);
+      } else if (field === 'userLiftMax') {
+        validatedValue = Math.min(Math.max(state.userLiftMin, value), 25);
+      }
+
+      // Update state with validated value and track the last changed field
+      setState(prev => {
+        if (field === 'budget' || field === 'stores' || field === 'heroBaseline' || 
+            field === 'weeks' || field === 'userLiftMin' || field === 'userLiftMax') {
+          return {
+            ...prev,
+            [field]: validatedValue,
+            lastChanged: field
+          };
+        }
+        return prev;
+      });
+    }, 150),
+    [state.userLiftMax, state.userLiftMin]
+  );
+
+  // Regular handler for immediate changes
   const handleChange = (field: keyof CalculatorState, value: number) => {
-    // Basic validation
-    let validatedValue = value;
-    
-    // Field-specific validations
-    if (field === 'budget' || field === 'heroBaseline') {
-      validatedValue = Math.max(0, value);
-    } else if (field === 'stores') {
-      validatedValue = Math.max(1, value);
-    } else if (field === 'weeks') {
-      validatedValue = Math.min(Math.max(1, value), 52);
-    } else if (field === 'userLiftMin') {
-      validatedValue = Math.min(Math.max(0, value), state.userLiftMax);
-    } else if (field === 'userLiftMax') {
-      validatedValue = Math.min(Math.max(state.userLiftMin, value), 25);
-    }
+    // For sliders (userLiftMin, userLiftMax), use the debounced handler
+    if (field === 'userLiftMin' || field === 'userLiftMax') {
+      debouncedHandleChange(field, value);
+    } else {
+      // For other inputs, apply changes immediately
+      // Basic validation
+      let validatedValue = value;
+      
+      // Field-specific validations
+      if (field === 'budget' || field === 'heroBaseline') {
+        validatedValue = Math.max(0, value);
+      } else if (field === 'stores') {
+        validatedValue = Math.max(1, value);
+      } else if (field === 'weeks') {
+        validatedValue = Math.min(Math.max(1, value), 52);
+      }
 
-    // Update state with validated value and track the last changed field
-    setState(prev => {
-      if (field === 'budget' || field === 'stores' || field === 'heroBaseline' || 
-          field === 'weeks' || field === 'userLiftMin' || field === 'userLiftMax') {
+      // Update state with validated value and track the last changed field
+      setState(prev => {
         return {
           ...prev,
           [field]: validatedValue,
           lastChanged: field
         };
-      }
-      return prev;
-    });
+      });
+    }
   };
 
   const handleLock = (field: LockableField) => {
@@ -168,6 +214,11 @@ export default function ROICalculator() {
     if (newLockedFields.has(field)) {
       // Unlock the field
       newLockedFields.delete(field);
+      
+      // If we're unlocking adSpendPerStoreWeek, clear the stored value
+      if (field === 'adSpendPerStoreWeek') {
+        setLockedASWValue(null);
+      }
     } else {
       // Don't allow locking all three parameters
       if (field === 'adSpendPerStoreWeek' && 
@@ -178,6 +229,11 @@ export default function ROICalculator() {
       
       // Lock the field
       newLockedFields.add(field);
+      
+      // If we're locking adSpendPerStoreWeek, store its current value
+      if (field === 'adSpendPerStoreWeek') {
+        setLockedASWValue(results.adSpendPerStoreWeek);
+      }
     }
     
     setLockedFields(newLockedFields);
