@@ -34,6 +34,8 @@ interface CalculationResult {
   stores: number;
   weeks: number;
   budget: number;
+  breakEvenLiftPercent: number; // Break-even lift percentage
+  baselineSalesPerStorePerWeek: number; // For profitability assessment
 }
 
 // Helper function to get intensity feedback based on spend level
@@ -166,6 +168,11 @@ export function calculateResults(state: CalculatorState): CalculationResult {
   const calculatedROASRatio = budget > 0 ? expectedIncrementalSalesValueMax / budget : Infinity;
   const calculatedROIPercentage = budget > 0 ? ((expectedIncrementalSalesValueMax - budget) / budget) * 100 : Infinity;
   
+  // Calculate the break-even lift percentage
+  const breakEvenLiftPercent = (baselineSalesPerStorePerWeek > 0) 
+    ? (adSpendPerStoreWeek / baselineSalesPerStorePerWeek) * 100 
+    : Infinity;
+    
   return {
     expectedCampaignSales,
     expectedCampaignSalesPerStorePerWeek,
@@ -180,6 +187,8 @@ export function calculateResults(state: CalculatorState): CalculationResult {
     calculatedROIPercentage,
     stores,
     weeks,
-    budget
+    budget,
+    breakEvenLiftPercent,
+    baselineSalesPerStorePerWeek
   };
 }

@@ -111,8 +111,9 @@ export default function ResultsCard(props: ResultsCardProps) {
               across <span className="font-medium">{props.stores}</span> stores
               for <span className="font-medium">{props.weeks}</span> weeks, 
               your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
-              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon} 
-              {props.intensityFeedback.message}
+              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}. 
+              {" "}{props.intensityFeedback.message}
+              {" "}{profitabilityConclusion}
             </p>
           </div>
           
@@ -192,8 +193,9 @@ export default function ResultsCard(props: ResultsCardProps) {
               across <span className="font-medium">{props.stores}</span> stores
               for <span className="font-medium">{props.weeks}</span> weeks, 
               your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
-              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon} 
-              {props.intensityFeedback.message}
+              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}. 
+              {" "}{props.intensityFeedback.message}
+              {" "}{profitabilityConclusion}
             </p>
           </div>
           

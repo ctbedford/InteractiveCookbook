@@ -1,0 +1,72 @@
+Okay, based on the discrepancy identified (the dynamic summary text incorrectly stating "potentially profitable" when the user's lift target is below the break-even requirement) and the codebase provided in `app_code_export (3).txt`, here's where the fix needs to happen:
+
+**File to Modify:**
+
+* `./client/src/components/ResultsCard.tsx`
+
+**Specific Location:**
+
+* The `<p>` tag responsible for rendering the dynamic summary text, located within the `TabsContent` for `value="totals"` (around line) and potentially duplicated within the `TabsContent` for `value="weekly"` (around line).
+
+**The Problem in the Current Code:**
+
+The current code (around line [cite: 39] for totals, [cite: 52] for weekly) directly appends the `props.intensityFeedback.message` to the summary. While the intensity feedback message itself now incorporates break-even and achievability context (as per our last specification update to `calculationUtils.ts`), the *initial part* of the summary text shown in the screenshot `image_0be8a2.jpg` seems to have had a hardcoded or separately generated phrase like "...appears achievable and potentially profitable." This phrase doesn't correctly account for the comparison between the `breakEvenLiftPercent` and the `userLiftMin`/`userLiftMax`.
+
+**How to Fix:**
+
+1.  **Ensure Data Availability:** First, confirm that `breakEvenLiftPercent` is being calculated in `calculationUtils.ts` and passed through the `CalculationResult` object and thus available as `props.breakEvenLiftPercent` within `ResultsCard.tsx`. (Our final specification for `calculationUtils.ts` included adding this).
+
+2.  **Modify Summary Text Logic:** Change how the concluding part of the summary sentence regarding profitability/achievability is generated within the `<p>` tag. Instead of a fixed phrase or just appending the intensity message, implement conditional logic:
+
+    ```typescript
+    // Inside the ResultsCard component function, before the return statement:
+
+    // Format break-even for display
+    const breakEvenDisplay = !isFinite(props.breakEvenLiftPercent) ? 'N/A' : `${props.breakEvenLiftPercent.toFixed(1)}%`;
+    const liftRangeDisplay = `${props.userLiftMin.toFixed(1)}%-${props.userLiftMax.toFixed(1)}%`;
+
+    // Determine profitability conclusion based on lift range vs break-even
+    let profitabilityConclusion = "";
+    if (props.breakEvenLiftPercent === Infinity || props.baselineSalesPerStorePerWeek <= 0) {
+       profitabilityConclusion = "Profitability cannot be assessed due to zero baseline sales.";
+    } else if (props.userLiftMin >= props.breakEvenLiftPercent) {
+      profitabilityConclusion = `Your target range (${liftRangeDisplay}) is above the break-even lift requirement (${breakEvenDisplay}) and appears profitable.`;
+    } else if (props.userLiftMax >= props.breakEvenLiftPercent) {
+      profitabilityConclusion = `Your target range (${liftRangeDisplay}) crosses the break-even lift requirement (${breakEvenDisplay}) and may be profitable if the upper lift is achieved.`;
+    } else {
+      // This is the case from image_0be8a2.jpg
+      profitabilityConclusion = `Your target range (${liftRangeDisplay}) is below the break-even lift requirement (${breakEvenDisplay}) and is unlikely to cover ad spend.`;
+    }
+
+    // Construct the full intensity/achievability message combining elements
+    // Note: The intensityFeedback.message ALREADY contains context based on thresholds/realism
+    // We just need to ensure the profitability conclusion is accurate.
+    const fullFeedbackMessage = `${props.intensityFeedback.message} ${profitabilityConclusion}`;
+
+
+    // --- Then, in the JSX for the summary text ---
+
+    // For Totals Tab:
+    <p className="text-sm text-primary-700 leading-relaxed">
+      With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget
+      across <span className="font-medium">{props.stores}</span> stores
+      for <span className="font-medium">{props.weeks}</span> weeks,
+      your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
+      is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}.
+      {/* Use the fullFeedbackMessage which includes the detailed tooltip content */}
+      {" "}{props.intensityFeedback.message}
+      {/* Explicitly add the correct profitability conclusion */}
+      {" "}{profitabilityConclusion}
+    </p>
+
+    // Repeat similar logic for the Weekly Tab summary if needed
+    ```
+
+**Explanation of Fix:**
+
+* We explicitly calculate the `breakEvenLiftPercent` in `calculationUtils.ts` and pass it via props.
+* Inside `ResultsCard.tsx`, we add logic to compare the `props.userLiftMin` and `props.userLiftMax` with `props.breakEvenLiftPercent`.
+* Based on this comparison, we generate a `profitabilityConclusion` string that accurately reflects whether the user's target lift range is above, below, or crossing the break-even threshold.
+* We then incorporate this accurate `profitabilityConclusion` into the dynamic summary text displayed to the user, replacing the potentially incorrect hardcoded phrase. We also display the detailed message from `intensityFeedback.message` which contains the richer context about spend level, target realism, and break-even hurdles.
+
+By implementing this change in `ResultsCard.tsx`, the summary text will correctly reflect the profitability implications based on the user's inputs and the calculated break-even point.
