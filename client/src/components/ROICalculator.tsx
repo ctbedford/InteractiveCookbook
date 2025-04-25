@@ -198,10 +198,11 @@ export default function ROICalculator() {
 
       // Update state with validated value and track the last changed field
       setState(prev => {
+        const lastChanged = field as LastChangedField;
         return {
           ...prev,
           [field]: validatedValue,
-          lastChanged: field
+          lastChanged
         };
       });
     }

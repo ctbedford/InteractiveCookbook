@@ -26,7 +26,7 @@ export default function ResultsCard(props: ResultsCardProps) {
   
   const formatROAS = (value?: number) => {
     if (value === undefined || !isFinite(value)) return "N/A";
-    return `${value.toFixed(2)}:1`;
+    return `$${value.toFixed(2)} to $1.00 Spent`;
   };
   
   const formatROI = (value?: number) => {
@@ -52,7 +52,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Campaign Sales</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedCampaignSales)}
+              {formatCurrency(props.expectedCampaignSales, false)}
             </span>
           </div>
           
@@ -60,7 +60,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Incremental Sales Range</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedIncrementalSalesValueMin)} - {formatCurrency(props.expectedIncrementalSalesValueMax)}
+              {formatCurrency(props.expectedIncrementalSalesValueMin, false)} - {formatCurrency(props.expectedIncrementalSalesValueMax, false)}
             </span>
             <span className="block text-xs text-primary-500">
               Based on +{props.userLiftMin.toFixed(1)}% to +{props.userLiftMax.toFixed(1)}% lift
@@ -132,7 +132,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Weekly Campaign Sales</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedCampaignSales / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek))}
+              {formatCurrency(props.expectedCampaignSales / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)}
             </span>
           </div>
           
@@ -140,8 +140,8 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Weekly Incremental Sales Range</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedIncrementalSalesValueMin / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek))} - 
-              {formatCurrency(props.expectedIncrementalSalesValueMax / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek))}
+              {formatCurrency(props.expectedIncrementalSalesValueMin / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)} - 
+              {formatCurrency(props.expectedIncrementalSalesValueMax / (props.totalAdSpendPerStore / props.adSpendPerStoreWeek), false)}
             </span>
             <span className="block text-xs text-primary-500">
               Based on +{props.userLiftMin.toFixed(1)}% to +{props.userLiftMax.toFixed(1)}% lift
