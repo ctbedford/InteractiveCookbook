@@ -9,11 +9,10 @@ interface ResultsCardProps {
   totalAdSpendPerStore: number;
   adSpendPerStoreWeek: number;
   intensityFeedback: {
-    label: string; // e.g., "(Optimal Spend / Realistic Target)"
+    label: string; // e.g., "(Achievable Target / Profitable)"
     icon: '✅' | '⚠️'; // Use actual icon characters or identifiers
     color: 'green' | 'orange' | 'red'; // Conceptual color categories
     message: string; // Detailed tooltip message
-    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; // Underlying intensity level
   };
   expectedIncrementalSalesValueMin: number;
   expectedIncrementalSalesValueMax: number;
@@ -123,9 +122,7 @@ export default function ResultsCard(props: ResultsCardProps) {
               With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget 
               across <span className="font-medium">{props.stores}</span> stores
               for <span className="font-medium">{props.weeks}</span> weeks, 
-              your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
-              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}. 
-              {" "}{props.intensityFeedback.message}
+              your ad spend is <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week.
             </p>
             <p className={`text-sm ${profitabilityColorClass} leading-relaxed font-medium mt-2`}>
               {profitabilityConclusion}{profitabilityEmoji}
@@ -207,9 +204,7 @@ export default function ResultsCard(props: ResultsCardProps) {
               With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget 
               across <span className="font-medium">{props.stores}</span> stores
               for <span className="font-medium">{props.weeks}</span> weeks, 
-              your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
-              is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}. 
-              {" "}{props.intensityFeedback.message}
+              your ad spend is <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week.
             </p>
             <p className={`text-sm ${profitabilityColorClass} leading-relaxed font-medium mt-2`}>
               {profitabilityConclusion}{profitabilityEmoji}

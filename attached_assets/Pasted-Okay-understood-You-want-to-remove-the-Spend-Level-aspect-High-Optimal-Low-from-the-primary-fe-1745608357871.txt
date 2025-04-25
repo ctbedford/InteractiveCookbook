@@ -1,0 +1,81 @@
+Okay, understood. You want to remove the "Spend Level" aspect (High/Optimal/Low) from the primary feedback indicator label and focus *purely* on assessing the **Target Realism** (Achievable/Ambitious based on <=15% lift) and its **Profitability** (based on comparing user lift to the break-even requirement).
+
+Based on the codebase in `app_code_export (3).txt`, here are the precise changes needed to implement this simplified feedback and fix the previously identified gaps:
+
+**1. Refactor Feedback Logic (`./client/src/lib/calculationUtils.ts`)**
+
+* **Update `CalculationResult` Interface:** Modify the `intensityFeedback` field type within the interface to reflect the simpler feedback structure:
+    ```typescript
+    interface CalculationResult {
+      // ... other existing fields ...
+      intensityFeedback: {
+        label: string; // e.g., "(Achievable Target / Profitable)"
+        icon: '✅' | '⚠️';
+        color: 'green' | 'orange' | 'red'; // Conceptual color for icon/label
+        message: string; // Detailed tooltip message explaining realism & profitability
+      };
+      breakEvenLiftPercent: number; // Ensure this is included
+      // ... other existing fields ...
+    }
+    ```
+    *(Remove the `level` field from `intensityFeedback` as it's no longer needed for the primary label)*.
+* **Rewrite `getIntensityFeedbackLogic` Function:** Replace the existing function.
+    * **Signature:** `function getIntensityFeedbackLogic(BSW: number, ASW: number, userLiftMin: number, userLiftMax: number): CalculationResult['intensityFeedback']`
+    * **Constants:** Keep `REASONABLE_MAX_LIFT = 15.0;`
+    * **Calculations:** Keep calculation for `breakEvenLiftPercent`.
+    * **Determine States:**
+        * `targetRealism`: `'Realistic'` (userLiftMax <= REASONABLE_MAX_LIFT), `'Ambitious'` (userLiftMax > REASONABLE_MAX_LIFT).
+        * `isProfitable`: `userLiftMin >= breakEvenLiftPercent`.
+        * `potentiallyProfitable`: `userLiftMax >= breakEvenLiftPercent`.
+    * **Implement New 6 Scenarios (Realism vs Profitability):**
+        * Use `if/else if` to cover the combinations of `targetRealism` and `isProfitable`/`potentiallyProfitable`.
+        * **Return Object:** For each scenario, return `{ label: string, icon: '✅' | '⚠️', color: 'green' | 'orange' | 'red', message: string }`.
+            * **Labels:** `(Achievable Target / Profitable)`, `(Achievable Target / Profitability Risk)`, `(Achievable Target / Unprofitable)`, `(Ambitious Target / Profitable)`, `(Ambitious Target / Profitability Risk)`, `(Ambitious Target / Unprofitable)`.
+            * **Icons:** `✅` only for `Realistic & Profitable`. `⚠️` for all others.
+            * **Colors:** `green` only for `Realistic & Profitable`. `red` for `Ambitious & Unprofitable`, `Ambitious & Potentially Profitable`, `Realistic & Unprofitable`. `orange` for `Ambitious & Profitable`, `Realistic & Potentially Profitable`.
+            * **Messages (Tooltips):** Construct messages focusing *only* on realism vs. profitability vs. break-even:
+                * *(Realistic/Profitable)*: "Target lift ({liftRange}) is achievable (<=15%) and projected to be profitable (break-even >{breakEven}%)."
+                * *(Realistic/Potentially Profitable)*: "Target lift ({liftRange}) is achievable (<=15%) but only the upper end is profitable (break-even >{breakEven}%)."
+                * *(Realistic/Unprofitable)*: "Target lift ({liftRange}) is achievable (<=15%) but below the level needed to break even (>%{breakEven}%)."
+                * *(Ambitious/Profitable)*: "Target lift ({liftRange}) exceeds typical ranges (>15%), making it ambitious, but it is projected to be profitable if achieved (break-even >{breakEven}%)."
+                * *(Ambitious/Potentially Profitable)*: "Target lift ({liftRange}) exceeds typical ranges (>15%) and only the upper end is profitable (break-even >{breakEven}%). High risk scenario."
+                * *(Ambitious/Unprofitable)*: "Target lift ({liftRange}) exceeds typical ranges (>15%) AND is below the level needed to break even (>{breakEven}% lift). Very unlikely to be profitable."
+* **Modify `calculateResults` Function:**
+    * Ensure `baselineSalesPerStorePerWeek` (BSW) and `breakEvenLiftPercent` are calculated.
+    * Update the call to the *new* `getIntensityFeedbackLogic`: `getIntensityFeedbackLogic(adSpendPerStoreWeek, baselineSalesPerStorePerWeek, state.userLiftMin, state.userLiftMax)`.
+    * Ensure `breakEvenLiftPercent` is included in the return object.
+
+**2. Refactor UI Component (`./client/src/components/ROICalculator.tsx`)**
+
+* **Update Derived Weekly Spend & Feedback Display:**
+    * Modify the feedback display section (currently line).
+    * Render the `<i>` tag for the icon based on `results.intensityFeedback.icon`.
+    * Render the `<span>` for the *new, simplified label* `results.intensityFeedback.label`.
+    * Apply Tailwind color classes (`text-green-600`, `text-yellow-600`, `text-red-600`) based on `results.intensityFeedback.color`.
+    * Use the `<Tooltip>` component to show the detailed `results.intensityFeedback.message`.
+
+**3. Refactor Results Display (`./client/src/components/ResultsCard.tsx`)**
+
+* **Fix Dynamic Summary Text:**
+    * **Ensure Data:** Add `breakEvenLiftPercent` to the `ResultsCardProps` interface.
+    * **Implement Logic:** Add the conditional logic (described in the previous response) inside the component function to compare `props.userLiftMin`/`Max` vs `props.breakEvenLiftPercent` and generate the correct `profitabilityConclusion` string.
+    * **Modify Text:** In the summary `<p>` tag, replace the phrase "...appears achievable and potentially profitable." with the dynamic `profitabilityConclusion` string. Remove the interpolation of `{props.intensityFeedback.icon}` and the direct interpolation of `{props.intensityFeedback.message}` from this summary paragraph, as the detailed feedback is now solely in the tooltip near the ASW input. The summary should now read something like:
+        ```jsx
+         <p className="text-sm text-primary-700 leading-relaxed">
+           With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget
+           across <span className="font-medium">{props.stores}</span> stores
+           for <span className="font-medium">{props.weeks}</span> weeks,
+           your ad spend is <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week.
+           {/* Add the dynamic profitability conclusion */}
+           {" "}{profitabilityConclusion}
+         </p>
+        ```
+* **Fix Formatting:** Ensure `formatCurrency(props.expectedCampaignSalesPerStorePerWeek, true)` is used.
+* **Optional: Remove Redundant Note:** Consider removing the note mentioning the lift range.
+
+**4. Refactor Formatting (`./client/src/lib/formatUtils.ts`)**
+
+* Verify `formatCurrency` uses `minimumFractionDigits: 2` when `forceDecimals` is true.
+* Verify `formatROI` / `formatROAS` handle Infinity -> "N/A".
+
+These focused changes will remove the spend level descriptions from the primary feedback label, base it purely on Target Realism vs Profitability, and fix the outstanding issue in the dynamic summary text within the provided codebase.

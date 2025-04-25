@@ -9,7 +9,6 @@ interface CalculatorState {
 }
 
 // Constants
-const GENERIC_INTENSITY_THRESHOLDS = { VERY_LOW: 5, LOW: 15, MEDIUM: 30, HIGH: 50 };
 const REASONABLE_MAX_LIFT = 15.0; // %
 
 interface CalculationResult {
@@ -18,11 +17,10 @@ interface CalculationResult {
   totalAdSpendPerStore: number;
   adSpendPerStoreWeek: number;
   intensityFeedback: {
-    label: string; // e.g., "(Optimal Spend / Realistic Target)"
+    label: string; // e.g., "(Achievable Target / Profitable)"
     icon: '✅' | '⚠️'; // Use actual icon characters or identifiers
     color: 'green' | 'orange' | 'red'; // Conceptual color categories
-    message: string; // Detailed tooltip message from logic below
-    level: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High'; // Underlying intensity level
+    message: string; // Detailed tooltip message
   };
   expectedIncrementalSalesValueMin: number; // $ value based on userLiftMin
   expectedIncrementalSalesValueMax: number; // $ value based on userLiftMax
@@ -38,43 +36,21 @@ interface CalculationResult {
   baselineSalesPerStorePerWeek: number; // For profitability assessment
 }
 
-// Helper function to get intensity feedback based on spend level
+// Helper function to get intensity feedback based on target realism and profitability
 function getIntensityFeedbackLogic(ASW: number, BSW: number, userLiftMin: number, userLiftMax: number): CalculationResult['intensityFeedback'] {
   // Calculate break-even lift percentage
   const breakEvenLiftPercent = (BSW > 0) ? (ASW / BSW) * 100 : Infinity;
   
-  // Determine spend level category
-  let spendLevelCategory: 'Low' | 'Optimal' | 'High';
-  if (ASW < GENERIC_INTENSITY_THRESHOLDS.LOW) {
-    spendLevelCategory = 'Low';
-  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
-    spendLevelCategory = 'Optimal';
-  } else {
-    spendLevelCategory = 'High';
-  }
+  // Determine target realism
+  const targetRealism: 'Realistic' | 'Ambitious' = userLiftMax <= REASONABLE_MAX_LIFT ? 'Realistic' : 'Ambitious';
   
-  // Determine target realism - consider both user lift and break-even requirement
-  const targetRealism: 'Realistic' | 'Ambitious' = 
-    (userLiftMax <= REASONABLE_MAX_LIFT && breakEvenLiftPercent <= REASONABLE_MAX_LIFT) 
-    ? 'Realistic' 
-    : 'Ambitious';
-  
-  // Determine detailed intensity level
-  let detailedIntensityLevel: 'Optimal' | 'Low' | 'High' | 'Very Low' | 'Very High';
-  if (ASW < GENERIC_INTENSITY_THRESHOLDS.VERY_LOW) {
-    detailedIntensityLevel = 'Very Low';
-  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.LOW) {
-    detailedIntensityLevel = 'Low';
-  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.MEDIUM) {
-    detailedIntensityLevel = 'Optimal';
-  } else if (ASW < GENERIC_INTENSITY_THRESHOLDS.HIGH) {
-    detailedIntensityLevel = 'High';
-  } else {
-    detailedIntensityLevel = 'Very High';
-  }
+  // Determine profitability
+  const isProfitable = userLiftMin >= breakEvenLiftPercent;
+  const potentiallyProfitable = !isProfitable && userLiftMax >= breakEvenLiftPercent;
   
   // Format user lift range for display
   const liftRangeDisplay = `${userLiftMin.toFixed(1)}%-${userLiftMax.toFixed(1)}%`;
+  const breakEvenDisplay = !isFinite(breakEvenLiftPercent) ? 'N/A' : `${breakEvenLiftPercent.toFixed(1)}%`;
   
   // Construct the feedback based on the scenarios
   let label: string;
@@ -82,58 +58,55 @@ function getIntensityFeedbackLogic(ASW: number, BSW: number, userLiftMin: number
   let color: 'green' | 'orange' | 'red';
   let message: string;
   
-  // Implement the 6 scenarios based on spend and target combinations
-  if (spendLevelCategory === 'Optimal' && targetRealism === 'Realistic') {
-    // Optimal/Realistic - Very positive
-    label = 'Optimal Spend / Realistic Target';
+  // Implement the 6 scenarios based on realism and profitability
+  if (targetRealism === 'Realistic' && isProfitable) {
+    // Realistic & Profitable - Very positive
+    label = 'Achievable Target / Profitable';
     icon = '✅';
     color = 'green';
-  } else if (spendLevelCategory === 'Low' && targetRealism === 'Realistic') {
-    // Low/Realistic - Cautious
-    label = 'Low Spend / Realistic Target';
+    message = `Target lift (${liftRangeDisplay}) is achievable (<=15%) and projected to be profitable (break-even >${breakEvenDisplay}).`;
+  } 
+  else if (targetRealism === 'Realistic' && potentiallyProfitable) {
+    // Realistic & Potentially Profitable - Cautious
+    label = 'Achievable Target / Profitability Risk';
     icon = '⚠️';
     color = 'orange';
-  } else if (spendLevelCategory === 'High' && targetRealism === 'Realistic') {
-    // High/Realistic - Cautious
-    label = 'High Spend / Realistic Target';
-    icon = '⚠️';
-    color = 'orange';
-  } else if (spendLevelCategory === 'Optimal' && targetRealism === 'Ambitious') {
-    // Optimal/Ambitious - Cautious
-    label = 'Optimal Spend / Ambitious Target';
-    icon = '⚠️';
-    color = 'orange';
-  } else if (spendLevelCategory === 'Low' && targetRealism === 'Ambitious') {
-    // Low/Ambitious - Warning
-    label = 'Low Spend / Ambitious Target';
+    message = `Target lift (${liftRangeDisplay}) is achievable (<=15%) but only the upper end is profitable (break-even >${breakEvenDisplay}).`;
+  } 
+  else if (targetRealism === 'Realistic' && !isProfitable && !potentiallyProfitable) {
+    // Realistic & Unprofitable - Warning
+    label = 'Achievable Target / Unprofitable';
     icon = '⚠️';
     color = 'red';
-  } else {
-    // High/Ambitious - Warning
-    label = 'High Spend / Ambitious Target';
+    message = `Target lift (${liftRangeDisplay}) is achievable (<=15%) but below the level needed to break even (>${breakEvenDisplay}).`;
+  } 
+  else if (targetRealism === 'Ambitious' && isProfitable) {
+    // Ambitious & Profitable - Cautious
+    label = 'Ambitious Target / Profitable';
+    icon = '⚠️';
+    color = 'orange';
+    message = `Target lift (${liftRangeDisplay}) exceeds typical ranges (>15%), making it ambitious, but it is projected to be profitable if achieved (break-even >${breakEvenDisplay}).`;
+  } 
+  else if (targetRealism === 'Ambitious' && potentiallyProfitable) {
+    // Ambitious & Potentially Profitable - Warning
+    label = 'Ambitious Target / Profitability Risk';
     icon = '⚠️';
     color = 'red';
-  }
-  
-  // Construct the detailed message based on intensity level
-  if (detailedIntensityLevel === 'Very Low') {
-    message = `Spending is very low (<$${GENERIC_INTENSITY_THRESHOLDS.VERY_LOW}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Significant impact is unlikely at this level; consider increasing budget or reducing scope.`;
-  } else if (detailedIntensityLevel === 'Low') {
-    message = `Spending is low ($${GENERIC_INTENSITY_THRESHOLDS.VERY_LOW}-$${GENERIC_INTENSITY_THRESHOLDS.LOW}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Achieving target lift (${liftRangeDisplay}) may be challenging; consider a budget increase if lift target is high.`;
-  } else if (detailedIntensityLevel === 'Optimal') {
-    message = `Spending ($${GENERIC_INTENSITY_THRESHOLDS.LOW}-$${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}/store/wk) is optimal. Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift. Your target range (${liftRangeDisplay}) appears achievable ${userLiftMax > REASONABLE_MAX_LIFT ? 'though the upper target is ambitious (>15%)' : ''} and potentially profitable.`;
-  } else if (detailedIntensityLevel === 'High') {
-    message = `Spending is high ($${GENERIC_INTENSITY_THRESHOLDS.MEDIUM}-$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift${breakEvenLiftPercent > REASONABLE_MAX_LIFT ? ', which may be challenging to achieve (>15%)' : ''}. Ensure tactics support this spend level and monitor for diminishing returns. Your target range (${liftRangeDisplay}), while achievable, is below the break-even lift requirement (${breakEvenLiftPercent.toFixed(1)}%) and is unlikely to cover ad spend.`;
-  } else {
-    message = `Spending is very high (>$${GENERIC_INTENSITY_THRESHOLDS.HIGH}/store/wk). Break-even requires >${breakEvenLiftPercent.toFixed(1)}% lift, which is likely unachievable (>15%). Diminishing returns are very likely. Strongly consider optimizing budget/stores/weeks. Your target range (${liftRangeDisplay}), while achievable, is below the break-even lift requirement (${breakEvenLiftPercent.toFixed(1)}%) and is unlikely to cover ad spend.`;
+    message = `Target lift (${liftRangeDisplay}) exceeds typical ranges (>15%) and only the upper end is profitable (break-even >${breakEvenDisplay}). High risk scenario.`;
+  } 
+  else {
+    // Ambitious & Unprofitable - Severe Warning
+    label = 'Ambitious Target / Unprofitable';
+    icon = '⚠️';
+    color = 'red';
+    message = `Target lift (${liftRangeDisplay}) exceeds typical ranges (>15%) AND is below the level needed to break even (>${breakEvenDisplay} lift). Very unlikely to be profitable.`;
   }
   
   return {
     label,
     icon,
     color,
-    message,
-    level: detailedIntensityLevel
+    message
   };
 }
 
