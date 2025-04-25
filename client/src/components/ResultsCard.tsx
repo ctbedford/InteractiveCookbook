@@ -49,15 +49,28 @@ export default function ResultsCard(props: ResultsCardProps) {
 
   // Determine profitability conclusion based on lift range vs break-even
   let profitabilityConclusion = "";
+  let profitabilityColorClass = "text-primary-700"; // Default color
+  let profitabilityEmoji = "";
+  
   if (props.breakEvenLiftPercent === Infinity || props.baselineSalesPerStorePerWeek <= 0) {
     profitabilityConclusion = "Profitability cannot be assessed due to zero baseline sales.";
+    profitabilityColorClass = "text-gray-600";
   } else if (props.userLiftMin >= props.breakEvenLiftPercent) {
     profitabilityConclusion = `Your target range (${liftRangeDisplay}) is above the break-even lift requirement (${breakEvenDisplay}) and appears profitable.`;
+    profitabilityColorClass = "text-green-600";
+    profitabilityEmoji = " ✓";
   } else if (props.userLiftMax >= props.breakEvenLiftPercent) {
     profitabilityConclusion = `Your target range (${liftRangeDisplay}) crosses the break-even lift requirement (${breakEvenDisplay}) and may be profitable if the upper lift is achieved.`;
+    profitabilityColorClass = "text-yellow-600";
+    profitabilityEmoji = " ⚠️";
   } else {
     profitabilityConclusion = `Your target range (${liftRangeDisplay}), while achievable, is below the break-even lift requirement (${breakEvenDisplay}) and is unlikely to cover ad spend.`;
+    profitabilityColorClass = "text-red-600";
+    profitabilityEmoji = " ❌";
   }
+
+  // Determine incremental sales range emoji
+  const salesRangeEmoji = props.expectedIncrementalSalesValueMin > 0 ? " 📈" : " 📉";
 
   return (
     <Card className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -79,7 +92,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           
           {/* Expected Incremental Sales Range */}
           <div>
-            <span className="block text-sm text-primary-500">Expected Incremental Sales Range</span>
+            <span className="block text-sm text-primary-500">Expected Incremental Sales Range {salesRangeEmoji}</span>
             <span className="block text-2xl font-bold text-primary-900">
               {formatCurrency(props.expectedIncrementalSalesValueMin, false)} - {formatCurrency(props.expectedIncrementalSalesValueMax, false)}
             </span>
@@ -113,7 +126,9 @@ export default function ResultsCard(props: ResultsCardProps) {
               your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
               is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}. 
               {" "}{props.intensityFeedback.message}
-              {" "}{profitabilityConclusion}
+            </p>
+            <p className={`text-sm ${profitabilityColorClass} leading-relaxed font-medium mt-2`}>
+              {profitabilityConclusion}{profitabilityEmoji}
             </p>
           </div>
           
@@ -123,15 +138,15 @@ export default function ResultsCard(props: ResultsCardProps) {
             
             <div className="flex justify-between">
               <span className="text-sm text-primary-600">Estimated ROI:</span>
-              <span className="text-sm font-medium text-primary-900">
-                {formatROI(props.calculatedROIPercentage)}
+              <span className={`text-sm font-medium ${props.calculatedROIPercentage && props.calculatedROIPercentage > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatROI(props.calculatedROIPercentage)} {props.calculatedROIPercentage && props.calculatedROIPercentage > 0 ? '↑' : '↓'}
               </span>
             </div>
             
             <div className="flex justify-between">
               <span className="text-sm text-primary-600">Estimated ROAS:</span>
-              <span className="text-sm font-medium text-primary-900">
-                {formatROAS(props.calculatedROASRatio)}
+              <span className={`text-sm font-medium ${props.calculatedROASRatio && props.calculatedROASRatio >= 1 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatROAS(props.calculatedROASRatio)} {props.calculatedROASRatio && props.calculatedROASRatio >= 1 ? '✓' : '⚠️'}
               </span>
             </div>
             
@@ -160,7 +175,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           
           {/* Expected Weekly Incremental Sales Range */}
           <div>
-            <span className="block text-sm text-primary-500">Expected Weekly Incremental Sales Range</span>
+            <span className="block text-sm text-primary-500">Expected Weekly Incremental Sales Range {salesRangeEmoji}</span>
             <span className="block text-2xl font-bold text-primary-900">
               {formatCurrency(props.expectedIncrementalSalesValueMin / props.weeks, false)} - 
               {formatCurrency(props.expectedIncrementalSalesValueMax / props.weeks, false)}
@@ -195,7 +210,9 @@ export default function ResultsCard(props: ResultsCardProps) {
               your ad spend of <span className="font-medium">{formatCurrency(props.adSpendPerStoreWeek)}</span> per store per week
               is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}. 
               {" "}{props.intensityFeedback.message}
-              {" "}{profitabilityConclusion}
+            </p>
+            <p className={`text-sm ${profitabilityColorClass} leading-relaxed font-medium mt-2`}>
+              {profitabilityConclusion}{profitabilityEmoji}
             </p>
           </div>
           
@@ -205,15 +222,15 @@ export default function ResultsCard(props: ResultsCardProps) {
             
             <div className="flex justify-between">
               <span className="text-sm text-primary-600">Estimated ROI:</span>
-              <span className="text-sm font-medium text-primary-900">
-                {formatROI(props.calculatedROIPercentage)}
+              <span className={`text-sm font-medium ${props.calculatedROIPercentage && props.calculatedROIPercentage > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatROI(props.calculatedROIPercentage)} {props.calculatedROIPercentage && props.calculatedROIPercentage > 0 ? '↑' : '↓'}
               </span>
             </div>
             
             <div className="flex justify-between">
               <span className="text-sm text-primary-600">Estimated ROAS:</span>
-              <span className="text-sm font-medium text-primary-900">
-                {formatROAS(props.calculatedROASRatio)}
+              <span className={`text-sm font-medium ${props.calculatedROASRatio && props.calculatedROASRatio >= 1 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatROAS(props.calculatedROASRatio)} {props.calculatedROASRatio && props.calculatedROASRatio >= 1 ? '✓' : '⚠️'}
               </span>
             </div>
             

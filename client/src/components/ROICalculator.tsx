@@ -313,8 +313,14 @@ export default function ROICalculator() {
             <div className="flex flex-wrap justify-between items-center">
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium text-primary-700">Ad Spend per Store per Week:</span>
-                <span className="text-lg font-semibold text-primary-900">
-                  {formatCurrency(results.adSpendPerStoreWeek, true)}
+                <span className={`text-lg font-semibold ${
+                  results.intensityFeedback.color === 'green'
+                    ? 'text-green-600'
+                    : results.intensityFeedback.color === 'orange'
+                    ? 'text-yellow-600'
+                    : 'text-red-600'
+                }`}>
+                  {formatCurrency(results.adSpendPerStoreWeek, true)} {results.intensityFeedback.icon}
                 </span>
                 
                 <TooltipProvider>
