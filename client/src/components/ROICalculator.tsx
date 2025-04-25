@@ -23,8 +23,8 @@ export default function ROICalculator() {
   // State for user inputs and change tracking
   const [state, setState] = useState<CalculatorState>({
     budget: 50000,
-    stores: 100,
-    heroBaseline: 1000000,
+    stores: 1000,
+    heroBaseline: 10000000,
     weeks: 8,
     userLiftMin: 3.5,
     userLiftMax: 7.0,
@@ -32,7 +32,7 @@ export default function ROICalculator() {
 
   // State for locked fields
   const [lockedFields, setLockedFields] = useState(
-    new Set<LockableField>(['budget', 'stores'])
+    new Set<LockableField>([])
   );
 
   // Store the locked ASW value separately
@@ -232,7 +232,7 @@ export default function ROICalculator() {
                   value={state.budget}
                   onChange={(value) => handleChange('budget', value)}
                   min={0}
-                  step={1000}
+                  step={5000}
                   icon="ri-money-dollar-circle-line"
                   canLock={!(lockedFields.has('adSpendPerStoreWeek') && lockedFields.has('stores'))}
                   locked={lockedFields.has('budget')}
@@ -245,7 +245,7 @@ export default function ROICalculator() {
                   value={state.stores}
                   onChange={(value) => handleChange('stores', value)}
                   min={1}
-                  step={10}
+                  step={100}
                   icon="ri-store-2-line"
                   canLock={!(lockedFields.has('adSpendPerStoreWeek') && lockedFields.has('budget'))}
                   locked={lockedFields.has('stores')}
@@ -258,7 +258,7 @@ export default function ROICalculator() {
                   value={state.heroBaseline}
                   onChange={(value) => handleChange('heroBaseline', value)}
                   min={0}
-                  step={1000}
+                  step={1000000}
                   icon="ri-money-dollar-circle-line"
                   canLock={false}
                 />
