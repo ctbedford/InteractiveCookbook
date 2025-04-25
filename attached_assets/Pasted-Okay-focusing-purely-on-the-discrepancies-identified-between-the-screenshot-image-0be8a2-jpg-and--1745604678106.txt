@@ -1,0 +1,74 @@
+Okay, focusing purely on the discrepancies identified between the screenshot `image_0be8a2.jpg` and our final specification, based on the codebase provided in `app_code_export (3).txt`, here are the specific changes needed:
+
+**1. Fix Incorrect Budget in Dynamic Summary Text**
+
+* **File:** `./client/src/components/ResultsCard.tsx`
+* **Location:** Inside the `<p>` tag used for the dynamic summary text (within both the `totals` and `weekly` `TabsContent`).
+* **Problem:** The text incorrectly displays a fixed budget value ($6,400.00 in a previous example, though the current code snippet uses `props.budget`) instead of dynamically using the actual budget passed in via props. The screenshot shows $50,000 budget in the summary, which *does* match the input $50,000 this time (unlike my previous analysis based on an older image/example), but the user noted it *was* wrong previously. We need to ensure it's always correct.
+* **Fix:** Verify that the budget value is being interpolated using `props.budget` as shown in the current code[cite: 38, 51]: `With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget...`. If this is already in place and was still showing wrong values previously, the issue might have been stale state or an error in how `budget` was passed down from `ROICalculator.tsx`. Ensure `budget` is correctly included in the `CalculationResult` return object in `calculationUtils.ts`[cite: 464] and passed in the spread props `(<ResultsCard {...results} />`) in `ROICalculator.tsx`.
+
+**2. Fix Incorrect Formatting for "Expected Campaign Sales Per Store Per Week"**
+
+* **File:** `./client/src/components/ResultsCard.tsx`
+* **Location:** Inside the `div` displaying this metric (within `totals` `TabsContent`, line[cite: 37]).
+* **Problem:** The value formatting is likely incorrect, showing `$192.31` instead of the expected `$19.23`.
+* **Fix:** Modify the `formatCurrency` call for this specific value to force showing decimal places. Change:
+    ```jsx
+     {formatCurrency(props.expectedCampaignSalesPerStorePerWeek)}
+    ```
+    to:
+    ```jsx
+     {formatCurrency(props.expectedCampaignSalesPerStorePerWeek, true)}
+    ```
+    Also, double-check the `formatCurrency` function in `./client/src/lib/formatUtils.ts` to ensure `minimumFractionDigits: 2` is correctly applied when `forceDecimals` is true.
+
+**3. Fix Incorrect Profitability Conclusion in Dynamic Summary Text**
+
+* **File:** `./client/src/lib/calculationUtils.ts` & `./client/src/components/ResultsCard.tsx`
+* **Problem:** The summary text concludes "...appears achievable and potentially profitable." which is incorrect when the user's entire lift range is below the calculated break-even lift percentage (34.5% in the `image_0be8a2.jpg` example). The summary needs logic to compare `userLiftMin`/`Max` to the `breakEvenLiftPercent`.
+* **Fix:**
+    * **Step 1 (Data Passing - `calculationUtils.ts`):**
+        * Calculate `breakEvenLiftPercent` inside `calculateResults`:
+          ```typescript
+          const baselineSalesPerStorePerWeek = (heroBaseline / 52) / (stores || 1);
+          const breakEvenLiftPercent = (baselineSalesPerStorePerWeek > 0) ? (adSpendPerStoreWeek / baselineSalesPerStorePerWeek) * 100 : Infinity;
+          ```
+        * Modify the `CalculationResult` interface to include `breakEvenLiftPercent: number;`.
+        * Add `breakEvenLiftPercent` to the return object of `calculateResults`[cite: 464].
+    * **Step 2 (Logic & Display - `ResultsCard.tsx`):**
+        * Update `ResultsCardProps` interface to include `breakEvenLiftPercent: number;`.
+        * Inside the component function[cite: 30], add logic to determine the correct conclusion:
+          ```typescript
+          // Inside ResultsCard component function
+          const breakEvenDisplay = !isFinite(props.breakEvenLiftPercent) ? 'N/A' : `${props.breakEvenLiftPercent.toFixed(1)}%`;
+          const liftRangeDisplay = `${props.userLiftMin.toFixed(1)}%-${props.userLiftMax.toFixed(1)}%`;
+          let profitabilityConclusion = "";
+          if (props.breakEvenLiftPercent === Infinity || props.baselineSalesPerStorePerWeek <= 0) {
+             profitabilityConclusion = "Profitability cannot be assessed due to zero baseline sales.";
+          } else if (props.userLiftMin >= props.breakEvenLiftPercent) {
+            profitabilityConclusion = `Your target range (${liftRangeDisplay}) is above the break-even lift requirement (${breakEvenDisplay}) and appears profitable.`;
+          } else if (props.userLiftMax >= props.breakEvenLiftPercent) {
+            profitabilityConclusion = `Your target range (${liftRangeDisplay}) crosses the break-even lift requirement (${breakEvenDisplay}) and may be profitable if the upper lift is achieved.`;
+          } else {
+            profitabilityConclusion = `Your target range (${liftRangeDisplay}), while achievable, is below the break-even lift requirement (${breakEvenDisplay}) and is unlikely to cover ad spend.`; // Correct conclusion for the example image
+          }
+          ```
+        * Modify the `<p>` tag for the dynamic summary text. Keep the first part describing budget/stores/weeks/ASW and the intensity range/icon. Replace the existing appended `props.intensityFeedback.message` with the newly generated `profitabilityConclusion` string. It might be better to append *both* the detailed intensity message *and* the specific profitability conclusion for full context:
+          ```jsx
+           <p className="text-sm text-primary-700 leading-relaxed">
+             With a <span className="font-medium">{formatCurrency(props.budget)}</span> budget ... is in the <span className={`font-medium ${intensityColorClass}`}>{props.intensityFeedback.level.toLowerCase()}</span> range {props.intensityFeedback.icon}.
+             {/* Append the detailed intensity message */}
+             {" "}{props.intensityFeedback.message}
+             {/* Append the accurate profitability conclusion */}
+             {" "}{profitabilityConclusion}
+           </p>
+          ```
+
+**4. Remove Redundant Lift Range Note (Optional)**
+
+* **File:** `./client/src/components/ResultsCard.tsx`
+* **Location:** The Notes section.
+* **Problem:** A note specifying the lift range used might be redundant given the sub-label under "Expected Incremental Sales Range".
+* **Fix (Optional):** Delete the line `<p className="text-xs text-primary-500">Note: All ranges shown are based on your input values (+X.X% to +Y.Y% lift).</p>` if it exists, or simply ensure the final notes only contain the essential disclaimers as shown in the last image.
+
+Addressing these specific points in the identified files will fix the remaining gaps between the code in `app_code_export (3).txt` and the desired behavior, particularly ensuring the summary text provides an accurate assessment of profitability based on the user's inputs vs. the break-even requirement.

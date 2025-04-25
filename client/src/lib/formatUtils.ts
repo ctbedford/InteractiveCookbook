@@ -31,8 +31,8 @@ export function formatROI(value?: number): string {
   return `${value.toFixed(1)}%`;
 }
 
-// Format ROAS (e.g., 1.23:1)
+// Format ROAS (e.g., $1.23 to $1.00 Spent)
 export function formatROAS(value?: number): string {
   if (value === undefined || !isFinite(value)) return "N/A";
-  return `${value.toFixed(2)}:1`;
+  return `$${value.toFixed(2)} to $1.00 Spent`;
 }

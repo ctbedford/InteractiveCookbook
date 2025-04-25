@@ -56,7 +56,7 @@ export default function ResultsCard(props: ResultsCardProps) {
   } else if (props.userLiftMax >= props.breakEvenLiftPercent) {
     profitabilityConclusion = `Your target range (${liftRangeDisplay}) crosses the break-even lift requirement (${breakEvenDisplay}) and may be profitable if the upper lift is achieved.`;
   } else {
-    profitabilityConclusion = `Your target range (${liftRangeDisplay}) is below the break-even lift requirement (${breakEvenDisplay}) and is unlikely to cover ad spend.`;
+    profitabilityConclusion = `Your target range (${liftRangeDisplay}), while achievable, is below the break-even lift requirement (${breakEvenDisplay}) and is unlikely to cover ad spend.`;
   }
 
   return (
@@ -92,7 +92,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Expected Campaign Sales Per Store Per Week</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.expectedCampaignSalesPerStorePerWeek)}
+              {formatCurrency(props.expectedCampaignSalesPerStorePerWeek, true)}
             </span>
           </div>
           
@@ -100,7 +100,7 @@ export default function ResultsCard(props: ResultsCardProps) {
           <div>
             <span className="block text-sm text-primary-500">Total Ad Spend Per Store</span>
             <span className="block text-2xl font-bold text-primary-900">
-              {formatCurrency(props.totalAdSpendPerStore)}
+              {formatCurrency(props.totalAdSpendPerStore, true)}
             </span>
           </div>
           
